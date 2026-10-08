@@ -1,4 +1,5 @@
-import { asc, eq, isNotNull, isNull, or, sql } from 'drizzle-orm'
+import { and, asc, eq, isNotNull, isNull, or, sql } from 'drizzle-orm'
+import type { SQL } from 'drizzle-orm'
 import type { Viewer } from '#/server/auth/viewer.ts'
 import { formatAcademicSemester } from '#/server/members/member-fields.ts'
 import { memberCache, staffRoles, videoStaff, videos } from '#/db/schema.ts'
@@ -15,11 +16,9 @@ export const MEMBERSHIP_STATUS_LABELS: Record<MembershipStatus, string> = {
   MEMBER_CANDIDATE_CANDIDATE: 'Stúdiósjelölt-jelölt',
   MEMBER_CANDIDATE: 'Stúdiósjelölt',
   MEMBER: 'Stúdiós',
+  ACTIVE_ALUMNI: 'Aktív öregtag',
   ALUMNI: 'Öregtag',
 }
-
-/** An alumnus who is not archived counts as an active one. */
-const ACTIVE_ALUMNI_LABEL = 'Aktív öregtag'
 
 export { formatAcademicSemester }
 
@@ -82,14 +81,25 @@ export async function getActiveMemberBlocks(
     member_candidate_candidates: rows
       .filter((row) => row.status === 'MEMBER_CANDIDATE_CANDIDATE')
       .map(toCard),
-    seniorActive: rows.filter((row) => row.status === 'ALUMNI').map(toCard),
+    seniorActive: rows
+      .filter((row) => row.status === 'ACTIVE_ALUMNI')
+      .map(toCard),
   }
 }
 
-export type ArchiveKind = 'archived'
+export type ArchiveKind = 'archived' | 'alumni'
 
 const ARCHIVE_TITLES: Record<ArchiveKind, string> = {
   archived: 'Dolgoztak még velünk',
+  alumni: 'Öregtagok',
+}
+
+const ARCHIVE_CONDITIONS: Record<ArchiveKind, SQL> = {
+  archived: isNotNull(memberCache.archivedAt),
+  alumni: and(
+    eq(memberCache.membershipStatus, 'ALUMNI'),
+    isNull(memberCache.archivedAt),
+  )!,
 }
 
 export interface MemberListPage {
@@ -112,7 +122,7 @@ export async function getMemberArchivePage(
       ? params.page
       : 1
 
-  const condition = isNotNull(memberCache.archivedAt)
+  const condition = ARCHIVE_CONDITIONS[kind]
   const [rows, countRows] = await Promise.all([
     executor
       .select({
@@ -178,10 +188,7 @@ export async function getMemberProfile(
     fullName: member.fullName,
     nickname: member.nickname,
     avatarUrl: member.avatarUrl,
-    statusLabel:
-      member.membershipStatus === 'ALUMNI' && member.archivedAt === null
-        ? ACTIVE_ALUMNI_LABEL
-        : MEMBERSHIP_STATUS_LABELS[member.membershipStatus],
+    statusLabel: MEMBERSHIP_STATUS_LABELS[member.membershipStatus],
     leadershipRole: member.leadershipRole,
     joinedSemester: formatAcademicSemester(
       member.joinedYear,

@@ -3,7 +3,7 @@
 openapi: "3.1.0"
 info:
   title: "BSS member update webhook"
-  version: "2.0.0"
+  version: "2.1.0"
   description: "This file is generated — do not edit by hand. Regenerate with `pnpm openapi:generate`."
 servers:
 - url: "https://bss.kir-dev.hu"
@@ -166,6 +166,7 @@ components:
           - "MEMBER_CANDIDATE_CANDIDATE"
           - "MEMBER_CANDIDATE"
           - "MEMBER"
+          - "ACTIVE_ALUMNI"
           - "ALUMNI"
           description: "Membership status. It decides which public list the member appears on; it grants NO permissions."
           examples:

@@ -444,13 +444,11 @@ describe.skipIf(!hasTestDatabase)('tagfrissítő webhook műveletek', () => {
       operations: [
         {
           op: 'upsert',
-          member: member({ membershipStatus: 'ALUMNI' }),
+          member: member({ membershipStatus: 'ACTIVE_ALUMNI' }),
         },
       ],
     })
 
-    // An unarchived ALUMNI is an active alumnus; only archiving moves them to
-    // the archive page, and their status is kept there.
     const blocks = await getActiveMemberBlocks(ctx.db)
     expect(blocks.members.some((card) => card.sub === '42')).toBe(false)
     expect(blocks.seniorActive.map((card) => card.sub)).toEqual(['42'])
@@ -458,6 +456,7 @@ describe.skipIf(!hasTestDatabase)('tagfrissítő webhook műveletek', () => {
       0,
     )
 
+    // Archiving moves them to the archive page, and their status is kept there.
     clock.advanceMinutes(1)
     await push(ctx, clock, token, {
       operations: [{ op: 'archive', sub: '42' }],
@@ -466,7 +465,53 @@ describe.skipIf(!hasTestDatabase)('tagfrissítő webhook műveletek', () => {
     expect(afterArchive.seniorActive).toHaveLength(0)
     const archive = await getMemberArchivePage(ctx.db, 'archived')
     expect(archive.items.map((card) => card.sub)).toEqual(['42'])
-    expect((await getMemberProfile(ctx.db, '42'))?.statusLabel).toBe('Öregtag')
+    expect((await getMemberProfile(ctx.db, '42'))?.statusLabel).toBe(
+      'Aktív öregtag',
+    )
+
+    // An upsert as ALUMNI restores them onto the alumni page.
+    clock.advanceMinutes(1)
+    await push(ctx, clock, token, {
+      operations: [
+        { op: 'upsert', member: member({ membershipStatus: 'ALUMNI' }) },
+      ],
+    })
+    expect(
+      (await getMemberArchivePage(ctx.db, 'alumni')).items.map(
+        (card) => card.sub,
+      ),
+    ).toEqual(['42'])
+    expect((await getMemberArchivePage(ctx.db, 'archived')).items).toHaveLength(
+      0,
+    )
+  })
+
+  it('ALUMNI tagot az archive és a replace is archivál', async () => {
+    const ctx = await setupAdminApiTest('bss whalumni')
+    const clock = new FakeClock('2026-08-24T10:00:00Z')
+    const { token } = await createClient(ctx, clock)
+
+    await push(ctx, clock, token, {
+      operations: [
+        { op: 'upsert', member: member({ membershipStatus: 'ALUMNI' }) },
+        {
+          op: 'upsert',
+          member: member({ sub: '43', membershipStatus: 'ALUMNI' }),
+        },
+      ],
+    })
+    clock.advanceMinutes(1)
+    await push(ctx, clock, token, {
+      operations: [{ op: 'archive', sub: '42' }],
+    })
+    clock.advanceMinutes(1)
+    await push(ctx, clock, token, { mode: 'replace', members: [] })
+
+    expect((await getMemberArchivePage(ctx.db, 'alumni')).items).toHaveLength(0)
+    const archived = (await getMemberArchivePage(ctx.db, 'archived')).items.map(
+      (card) => card.sub,
+    )
+    expect(archived.sort()).toEqual(['42', '43'])
   })
 
   it('a félév ÉÉÉÉ/ÉÉÉÉ/N alakban megy be és ugyanúgy jön vissza', async () => {

@@ -5,6 +5,7 @@ const statuses = [
   'MEMBER_CANDIDATE_CANDIDATE',
   'MEMBER_CANDIDATE',
   'MEMBER',
+  'ACTIVE_ALUMNI',
   'ALUMNI',
 ] as const
 
@@ -32,12 +33,6 @@ describe('membership webhook tagsági státusz', () => {
     if (operation.op === 'upsert') {
       expect(operation.member.membershipStatus).toBe(status)
     }
-  })
-
-  it('a megszűnt ACTIVE_ALUMNI értéket elutasítja', () => {
-    expect(() => parseMemberIngestPayload(payload('ACTIVE_ALUMNI'))).toThrow(
-      /membershipStatus/,
-    )
   })
 
   it('a korábbi kisbetűs értékeket elutasítja', () => {

@@ -23,6 +23,7 @@ import { Route as EventsIndexRouteImport } from './routes/events/index'
 import { Route as EventsSlugRouteImport } from './routes/events/$slug'
 import { Route as MembersIndexRouteImport } from './routes/members/index'
 import { Route as MembersSlugRouteImport } from './routes/members/$slug'
+import { Route as MembersAlumniRouteImport } from './routes/members/alumni'
 import { Route as MembersArchivedRouteImport } from './routes/members/archived'
 import { Route as VideosIndexRouteImport } from './routes/videos/index'
 import { Route as VideosSlugRouteImport } from './routes/videos/$slug'
@@ -105,6 +106,11 @@ const MembersSlugRoute = MembersSlugRouteImport.update({
   path: '/members/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
+const MembersAlumniRoute = MembersAlumniRouteImport.update({
+  id: '/members/alumni',
+  path: '/members/alumni',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const MembersArchivedRoute = MembersArchivedRouteImport.update({
   id: '/members/archived',
   path: '/members/archived',
@@ -173,6 +179,7 @@ export interface FileRoutesByFullPath {
   '/admin/trash': typeof AdminTrashRoute
   '/events/$slug': typeof EventsSlugRoute
   '/members/$slug': typeof MembersSlugRoute
+  '/members/alumni': typeof MembersAlumniRoute
   '/members/archived': typeof MembersArchivedRoute
   '/videos/$slug': typeof VideosSlugRoute
   '/admin/': typeof AdminIndexRoute
@@ -199,6 +206,7 @@ export interface FileRoutesByTo {
   '/admin/trash': typeof AdminTrashRoute
   '/events/$slug': typeof EventsSlugRoute
   '/members/$slug': typeof MembersSlugRoute
+  '/members/alumni': typeof MembersAlumniRoute
   '/members/archived': typeof MembersArchivedRoute
   '/videos/$slug': typeof VideosSlugRoute
   '/admin': typeof AdminIndexRoute
@@ -227,6 +235,7 @@ export interface FileRoutesById {
   '/admin/trash': typeof AdminTrashRoute
   '/events/$slug': typeof EventsSlugRoute
   '/members/$slug': typeof MembersSlugRoute
+  '/members/alumni': typeof MembersAlumniRoute
   '/members/archived': typeof MembersArchivedRoute
   '/videos/$slug': typeof VideosSlugRoute
   '/admin/': typeof AdminIndexRoute
@@ -256,6 +265,7 @@ export interface FileRouteTypes {
     | '/admin/trash'
     | '/events/$slug'
     | '/members/$slug'
+    | '/members/alumni'
     | '/members/archived'
     | '/videos/$slug'
     | '/admin/'
@@ -282,6 +292,7 @@ export interface FileRouteTypes {
     | '/admin/trash'
     | '/events/$slug'
     | '/members/$slug'
+    | '/members/alumni'
     | '/members/archived'
     | '/videos/$slug'
     | '/admin'
@@ -309,6 +320,7 @@ export interface FileRouteTypes {
     | '/admin/trash'
     | '/events/$slug'
     | '/members/$slug'
+    | '/members/alumni'
     | '/members/archived'
     | '/videos/$slug'
     | '/admin/'
@@ -333,6 +345,7 @@ export interface RootRouteChildren {
   SearchRoute: typeof SearchRoute
   EventsSlugRoute: typeof EventsSlugRoute
   MembersSlugRoute: typeof MembersSlugRoute
+  MembersAlumniRoute: typeof MembersAlumniRoute
   MembersArchivedRoute: typeof MembersArchivedRoute
   VideosSlugRoute: typeof VideosSlugRoute
   EventsIndexRoute: typeof EventsIndexRoute
@@ -438,6 +451,13 @@ declare module '@tanstack/react-router' {
       path: '/members/$slug'
       fullPath: '/members/$slug'
       preLoaderRoute: typeof MembersSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/members/alumni': {
+      id: '/members/alumni'
+      path: '/members/alumni'
+      fullPath: '/members/alumni'
+      preLoaderRoute: typeof MembersAlumniRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/members/archived': {
@@ -562,6 +582,7 @@ const rootRouteChildren: RootRouteChildren = {
   SearchRoute: SearchRoute,
   EventsSlugRoute: EventsSlugRoute,
   MembersSlugRoute: MembersSlugRoute,
+  MembersAlumniRoute: MembersAlumniRoute,
   MembersArchivedRoute: MembersArchivedRoute,
   VideosSlugRoute: VideosSlugRoute,
   EventsIndexRoute: EventsIndexRoute,
@@ -571,12 +592,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { createStart } from '@tanstack/react-start'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-  }
-}

@@ -18,7 +18,7 @@ export const MEMBER_WEBHOOK_OPENAPI_PATH =
 export const OPENAPI_VERSION = '3.1.0'
 
 /** Bumped by hand when the wire contract changes in a way clients must notice. */
-export const MEMBER_WEBHOOK_API_VERSION = '2.0.0'
+export const MEMBER_WEBHOOK_API_VERSION = '2.1.0'
 
 export type JsonValue =
   string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue }

@@ -80,6 +80,13 @@ function MembersPage() {
             >
               Dolgoztak még velünk
             </Link>
+            <Link
+              to="/members/alumni"
+              search={() => ({ page: undefined })}
+              className="font-bold text-(--orange) underline"
+            >
+              Öregtagok
+            </Link>
           </nav>
         </>
       )}

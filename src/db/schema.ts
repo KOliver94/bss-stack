@@ -46,6 +46,7 @@ export const membershipStatusEnum = pgEnum('membership_status', [
   'MEMBER_CANDIDATE_CANDIDATE',
   'MEMBER_CANDIDATE',
   'MEMBER',
+  'ACTIVE_ALUMNI',
   'ALUMNI',
 ])
 

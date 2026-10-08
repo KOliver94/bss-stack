@@ -1,35 +1,6 @@
 /**
  * Full legacy migration: videos, members, events from ../bss-dump into the
  * new bss-stack Postgres (memberCache, events, videos, tags, staffRoles ...).
- *
- * Sources:
- *   - MySQL dump: ../bss-dump/20260825_2105_website_db.sql via running
- *     container bss-dump-mysql-1 (database website_db, user website)
- *   - Postgres dump: ../bss-dump/backstage-migration-20260825.dump, read
- *     directly through pg_restore.
- *
- * Decisions (confirmed with owner on 2026-08-28):
- *   - Members: canonical is Backstage public.Member (370 rows), introduction
- *     is migrated from Drupal profile_values fid=13, avatar is NOT migrated,
- *     leadershipRole is the public.LeadershipRole label(s). Backstage statuses are
- *     kept verbatim (MEMBER_CANDIDATE_CANDIDATE, MEMBER_CANDIDATE, MEMBER,
- *     ALUMNI), except ACTIVE_ALUMNI, which folds into ALUMNI: an unarchived
- *     ALUMNI is the active alumnus now.
- *       archived=true previously meant soft-deleted; in the new system it maps
- *       to memberCache.archivedAt (so a later webhook can restore). Drupal-only
- *       accounts are kept as ALUMNI so their historical staff credits stay
- *       reachable from the "Dolgoztak még velünk" listing.
- *       Names use Hungarian display order: family name, then given name.
- *   - Events: 108 rows, slug from url_alias event/..., exact video relations
- *     from content_field_show_videos, and a keyframe thumbnail when available.
- *   - Videos: all 2.4k rows (full migration), bypassing the 50-video seed cap.
- *     Visibility defaults to public, encodingGroup from the video_server_profile
- *     (30->4a3_SD, 443->16a9_SD, 444->16a9_HD), hasHq/hasLq from the flags,
- *     baseFilename as-is, publishedAt from node.created, recordedAt from
- *     content_field_video_shooting_date, description is stripped HTML from
- *     node_revisions, tags from term_data, songs from content_field_music
- *     (joined by newline), staff from content_field_cast_list + content_type_cast_element.
- *
  * Usage:
  *   pnpm exec tsx scripts/migrate-legacy.ts --dry-run   # print summary, write artifacts to oob/migrate-*.json
  *   pnpm exec tsx scripts/migrate-legacy.ts --execute   # actually write to Postgres DATABASE_URL
@@ -203,12 +174,10 @@ function parseBackstageCopy(section: string): string[][] {
 type MembershipStatus = (typeof membershipStatusEnum.enumValues)[number]
 
 // membershipStatusEnum reuses the Backstage MembershipStatus values verbatim,
-// so migrating is a validation step rather than a mapping; the one exception is
-// ACTIVE_ALUMNI, which is what an unarchived ALUMNI means here.
+// so migrating is a validation step rather than a mapping.
 const MEMBERSHIP_STATUSES = new Set<string>(membershipStatusEnum.enumValues)
 
 function mapMembershipStatus(backstageStatus: string): MembershipStatus {
-  if (backstageStatus === 'ACTIVE_ALUMNI') return 'ALUMNI'
   if (!MEMBERSHIP_STATUSES.has(backstageStatus)) {
     console.warn(
       `Unknown Backstage status "${backstageStatus}", falling back to MEMBER_CANDIDATE_CANDIDATE`,
@@ -320,14 +289,9 @@ function legacyMembershipStatus(value: string | null): MembershipStatus {
   if (normalized === 'stúdiós jelölt') return 'MEMBER_CANDIDATE'
   if (normalized === 'stúdiós-jelölt jelölt')
     return 'MEMBER_CANDIDATE_CANDIDATE'
-  // Everyone else is an alumnus too; see isLegacyActiveAlumnus for which of
-  // them stay unarchived.
+  if (normalized === 'aktív öregtag') return 'ACTIVE_ALUMNI'
+  // Everyone else is an alumnus too.
   return 'ALUMNI'
-}
-
-/** Only these Drupal-only alumni are active; the rest go to the archive. */
-function isLegacyActiveAlumnus(value: string | null): boolean {
-  return value?.trim().toLocaleLowerCase('hu-HU') === 'aktív öregtag'
 }
 
 function normalizeLegacySemester(value: string | null): string | null {
@@ -577,9 +541,8 @@ async function migrateMembers(
     }
   }
 
-  // Five Drupal accounts are absent from Backstage. Keep them as ALUMNI so
-  // their historical staff credits do not disappear; unless they were active
-  // alumni, they go to the archive ("Dolgoztak még velünk").
+  // Five Drupal accounts are absent from Backstage. Keep them as (active)
+  // alumni so their historical staff credits do not disappear.
   const backstageWebsiteIds = new Set(
     memberRows.map((cols) => cols[13]).filter((id) => id !== '\\N'),
   )
@@ -597,9 +560,6 @@ async function migrateMembers(
       joinedSemesterRaw: normalizeLegacySemester(user.joinedSemester),
       introduction: user.introduction,
     })
-    const archived =
-      payload.membershipStatus === 'ALUMNI' &&
-      !isLegacyActiveAlumnus(user.legacyStatus)
     artifacts.push({
       sub,
       websiteUserId: String(user.uid),
@@ -613,7 +573,7 @@ async function migrateMembers(
       introduction: payload.introduction
         ? `${payload.introduction.slice(0, 80)}...`
         : null,
-      archived,
+      archived: false,
       legacyOnly: true,
     })
     if (opts.dryRun) continue
@@ -628,7 +588,7 @@ async function migrateMembers(
         ...payload,
         createdAt: user.createdAt,
         updatedAt: user.createdAt,
-        archivedAt: archived ? new Date() : null,
+        archivedAt: null,
       })
       created++
     } else {
@@ -642,14 +602,14 @@ async function migrateMembers(
         current.joinedYear !== payload.joinedYear ||
         (current.joinedSemester ?? null) !== (payload.joinedSemester ?? null) ||
         (current.introduction ?? null) !== (payload.introduction ?? null) ||
-        (current.archivedAt !== null) !== archived
+        current.archivedAt !== null
       if (differs) {
         await db
           .update(memberCache)
           .set({
             ...payload,
             updatedAt: user.createdAt,
-            archivedAt: archived ? (current.archivedAt ?? new Date()) : null,
+            archivedAt: null,
           })
           .where(eq(memberCache.sub, sub))
         updated++

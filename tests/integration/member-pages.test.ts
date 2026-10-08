@@ -85,17 +85,16 @@ describe.skipIf(!hasTestDatabase)('BSS-023: aktív tagoldal blokkjai', () => {
     })
     await seedMember(db, {
       sub: 'm4',
-      username: 'oregtag',
-      fullName: 'Öregtag Dénes',
-      membershipStatus: 'ALUMNI',
+      username: 'aktiv-oregtag',
+      fullName: 'Aktív Öregtag Dénes',
+      membershipStatus: 'ACTIVE_ALUMNI',
     })
-    // Archived alumni belong on the archive page, not among the active ones.
+    // Plain alumni have their own page, not a block here.
     await seedMember(db, {
       sub: 'm5',
-      username: 'archiv-oregtag',
-      fullName: 'Archív Öregtag',
+      username: 'oregtag',
+      fullName: 'Öregtag Elemér',
       membershipStatus: 'ALUMNI',
-      archivedAt: new Date('2026-07-01T00:00:00Z'),
     })
 
     const blocks = await getActiveMemberBlocks(db)
@@ -111,7 +110,7 @@ describe.skipIf(!hasTestDatabase)('BSS-023: aktív tagoldal blokkjai', () => {
       blocks.member_candidate_candidates.map((member) => member.username),
     ).toEqual(['jelölt-jelölt'])
     expect(blocks.seniorActive.map((member) => member.username)).toEqual([
-      'oregtag',
+      'aktiv-oregtag',
     ])
   })
 })
@@ -168,18 +167,44 @@ describe.skipIf(!hasTestDatabase)('BSS-023: archív aloldal', () => {
         sub: `arch-${index}`,
         username: `archivalt-${index}`,
         fullName: `Archivált ${index}`,
-        membershipStatus: index === 0 ? 'MEMBER' : 'ALUMNI',
+        membershipStatus: index === 0 ? 'MEMBER' : 'ACTIVE_ALUMNI',
         archivedAt: new Date('2026-07-01T00:00:00Z'),
       })
     }
     await seedMember(db, {
-      sub: 'active-alumni',
-      username: 'aktiv-oregtag',
+      sub: 'alumni',
+      username: 'oregtag',
       membershipStatus: 'ALUMNI',
     })
     const archived = await getMemberArchivePage(db, 'archived')
     expect(archived.total).toBe(3)
     expect(archived.title).toBe('Dolgoztak még velünk')
+  })
+})
+
+describe.skipIf(!hasTestDatabase)('öregtagok aloldal', () => {
+  it('csak az ALUMNI státuszú tagok', async () => {
+    const db = await setupDb()
+    await seedMember(db, {
+      sub: 'alumni-1',
+      username: 'oregtag',
+      fullName: 'Öregtag Elemér',
+      membershipStatus: 'ALUMNI',
+    })
+    await seedMember(db, {
+      sub: 'active-alumni',
+      username: 'aktiv-oregtag',
+      membershipStatus: 'ACTIVE_ALUMNI',
+    })
+    await seedMember(db, {
+      sub: 'member',
+      username: 'studios',
+      membershipStatus: 'MEMBER',
+    })
+
+    const alumni = await getMemberArchivePage(db, 'alumni')
+    expect(alumni.title).toBe('Öregtagok')
+    expect(alumni.items.map((member) => member.username)).toEqual(['oregtag'])
   })
 })
 
@@ -228,26 +253,23 @@ describe.skipIf(!hasTestDatabase)('BSS-023: tagprofil', () => {
     expect(profile).toMatchObject({ sub: 'authentik-sub-1', username: null })
   })
 
-  it('nem archivált öregtag aktív öregtag, az archivált csak öregtag', async () => {
+  it('az aktív öregtag és az öregtag külön státusz', async () => {
     const db = await setupDb()
     await seedMember(db, {
       sub: 'alumni-1',
       username: 'aktiv-oregtag',
-      membershipStatus: 'ALUMNI',
+      membershipStatus: 'ACTIVE_ALUMNI',
     })
     await seedMember(db, {
       sub: 'alumni-2',
-      username: 'archiv-oregtag',
+      username: 'oregtag',
       membershipStatus: 'ALUMNI',
-      archivedAt: new Date('2026-07-01T00:00:00Z'),
     })
 
     expect((await getMemberProfile(db, 'aktiv-oregtag'))?.statusLabel).toBe(
       'Aktív öregtag',
     )
-    expect((await getMemberProfile(db, 'archiv-oregtag'))?.statusLabel).toBe(
-      'Öregtag',
-    )
+    expect((await getMemberProfile(db, 'oregtag'))?.statusLabel).toBe('Öregtag')
   })
 })
 

@@ -108,7 +108,11 @@ export function buildTag(overrides: Partial<TagFixture> = {}): TagFixture {
 }
 
 export type MembershipStatus =
-  'MEMBER' | 'MEMBER_CANDIDATE' | 'MEMBER_CANDIDATE_CANDIDATE' | 'ALUMNI'
+  | 'MEMBER'
+  | 'MEMBER_CANDIDATE'
+  | 'MEMBER_CANDIDATE_CANDIDATE'
+  | 'ACTIVE_ALUMNI'
+  | 'ALUMNI'
 
 export interface MemberFixture {
   sub: string

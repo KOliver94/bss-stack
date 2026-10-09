@@ -4,6 +4,7 @@ const YOUTUBE_FRAME_HOSTS =
   'https://www.youtube-nocookie.com https://www.youtube.com'
 // The live preview thumbnail comes from the YouTube CDN.
 const YOUTUBE_IMAGE_HOSTS = 'https://i.ytimg.com'
+const AVATAR_IMAGE_HOSTS = 'https://backstage.bsstudio.hu'
 
 export function contentSecurityPolicy(
   mediaHost = getCachedOobConfig().media.host,
@@ -14,7 +15,7 @@ export function contentSecurityPolicy(
     // a separate nonce cannot be reliably introduced in the streaming response.
     "script-src 'self' 'unsafe-inline'",
     "style-src 'self' 'unsafe-inline'",
-    `img-src 'self' data: ${mediaHost} ${YOUTUBE_IMAGE_HOSTS}`,
+    `img-src 'self' data: ${mediaHost} ${YOUTUBE_IMAGE_HOSTS} ${AVATAR_IMAGE_HOSTS}`,
     `media-src 'self' ${mediaHost}`,
     `frame-src ${YOUTUBE_FRAME_HOSTS}`,
     "connect-src 'self'",

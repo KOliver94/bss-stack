@@ -11,6 +11,7 @@ describe('BSS-035: biztonsági fejlécek és CSP', () => {
     const csp = contentSecurityPolicy(TEST_MEDIA_HOST)
     expect(csp).toContain("media-src 'self' https://v.bsstudio.hu")
     expect(csp).toContain('https://www.youtube-nocookie.com')
+    expect(csp).toMatch(/img-src [^;]*https:\/\/backstage\.bsstudio\.hu/)
     expect(csp).toContain("frame-ancestors 'none'")
     expect(csp).toContain("object-src 'none'")
   })

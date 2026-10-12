@@ -374,8 +374,7 @@ function LiveSection({
             {ended.map((live) => (
               <li key={live.id}>
                 {live.youtubeVideoId} · {formatAdminDateTimeHu(live.startsAt)} –{' '}
-                {formatAdminDateTimeHu(live.endsAt)} · korábbi live csak
-                másolatként ütemezhető újra
+                {formatAdminDateTimeHu(live.endsAt)}
               </li>
             ))}
           </ul>

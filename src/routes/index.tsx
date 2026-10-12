@@ -272,7 +272,7 @@ function HeroPlayer({ video }: { video: HomepageHeroVideo }) {
         videoUrl={video.videoUrl}
         hqUrl={video.hqUrl}
         lqUrl={video.lqUrl}
-        posterUrl={video.thumbnailUrl}
+        posterUrl={video.keyframeUrl}
         title={video.title}
       />
       <Link

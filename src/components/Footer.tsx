@@ -28,9 +28,9 @@ const partners = [
     height: 30,
   },
   {
-    name: 'BME VIK',
-    href: 'https://vik.bme.hu/',
-    src: '/partners/vik.svg',
+    name: 'SPOT',
+    href: 'https://spot.sch.bme.hu/',
+    src: '/partners/spot.svg',
     width: 42,
     height: 42,
   },

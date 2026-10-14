@@ -1,5 +1,7 @@
 import type { ReactNode } from 'react'
 
+export const NO_FORM_RESTORE = { autoComplete: 'off' }
+
 export function AdminTextField({
   label,
   value,
@@ -33,6 +35,7 @@ export function AdminTextField({
         value={value}
         required={required}
         maxLength={maxLength}
+        autoComplete="off"
         onChange={(event) => onChange(event.target.value)}
         className="h-10 border-b border-(--nav-border-b) bg-(--nav-search-bg) px-2 outline-none focus:border-(--orange)"
       />
@@ -72,6 +75,7 @@ export function AdminTextArea({
         value={value}
         rows={rows}
         maxLength={maxLength}
+        autoComplete="off"
         onChange={(event) => onChange(event.target.value)}
         className="border-b border-(--nav-border-b) bg-(--nav-search-bg) p-2 outline-none focus:border-(--orange)"
       />
@@ -96,6 +100,7 @@ export function AdminPrimaryButton({
       type="button"
       onClick={onClick}
       disabled={disabled}
+      {...NO_FORM_RESTORE}
       className="solid-btn rounded bg-(--orange) px-4 py-2 text-sm font-bold text-white disabled:opacity-40"
     >
       {children}
@@ -119,6 +124,7 @@ export function AdminSecondaryButton({
     <button
       type="button"
       disabled={disabled}
+      {...NO_FORM_RESTORE}
       onClick={() => {
         if (confirm === undefined || window.confirm(confirm)) {
           onClick()

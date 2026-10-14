@@ -15,6 +15,7 @@ import {
   AdminSecondaryButton,
   AdminTextArea,
   AdminTextField,
+  NO_FORM_RESTORE,
 } from '#/components/admin/form.tsx'
 import {
   ConflictBanner,
@@ -450,6 +451,7 @@ function VideoEditor({
             <label className="flex items-center gap-2">
               <input
                 type="checkbox"
+                autoComplete="off"
                 checked={form.hasHq}
                 onChange={(event) => patch({ hasHq: event.target.checked })}
               />
@@ -458,6 +460,7 @@ function VideoEditor({
             <label className="flex items-center gap-2">
               <input
                 type="checkbox"
+                autoComplete="off"
                 checked={form.hasLq}
                 onChange={(event) => patch({ hasLq: event.target.checked })}
               />
@@ -627,6 +630,7 @@ function TagSection({
             <label key={tag.id} className="flex items-center gap-2 text-sm">
               <input
                 type="checkbox"
+                autoComplete="off"
                 checked={selected.includes(tag.id)}
                 onChange={() =>
                   onChange(
@@ -786,6 +790,7 @@ function RelatedSection({
                 type="button"
                 aria-label="Feljebb"
                 disabled={index === 0}
+                {...NO_FORM_RESTORE}
                 onClick={() => {
                   const next = [...selectedIds]
                   ;[next[index - 1], next[index]] = [
@@ -802,6 +807,7 @@ function RelatedSection({
                 type="button"
                 aria-label="Lejjebb"
                 disabled={index === selectedIds.length - 1}
+                {...NO_FORM_RESTORE}
                 onClick={() => {
                   const next = [...selectedIds]
                   ;[next[index + 1], next[index]] = [
@@ -942,6 +948,7 @@ function SongsField({
           className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] items-center gap-2"
         >
           <input
+            autoComplete="off"
             value={entry.artist}
             onChange={(event) => setField(index, 'artist', event.target.value)}
             placeholder="Előadó"
@@ -950,6 +957,7 @@ function SongsField({
             className={SONG_INPUT_CLASS}
           />
           <input
+            autoComplete="off"
             value={entry.title}
             onChange={(event) => setField(index, 'title', event.target.value)}
             placeholder="Szám címe"

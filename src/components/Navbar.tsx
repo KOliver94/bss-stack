@@ -42,19 +42,13 @@ export default function Navbar() {
           className="shrink-0 transition-transform hover:scale-105 active:scale-95"
           aria-label="Főoldal"
         >
-          <picture>
-            <source
-              media="(max-width: 639px)"
-              srcSet="/bss-navbar-logo-mobile.svg"
-            />
-            <img
-              src="/bss-navbar-logo.svg"
-              alt="Budavári Schönherz Stúdió"
-              width={123}
-              height={37}
-              className="h-8 w-auto sm:h-[37px]"
-            />
-          </picture>
+          <img
+            src="/bss-navbar-logo.svg"
+            alt="Budavári Schönherz Stúdió"
+            width={123}
+            height={37}
+            className="h-8 w-auto sm:h-[37px]"
+          />
         </Link>
 
         {/* desktop links */}

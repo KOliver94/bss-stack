@@ -111,3 +111,13 @@ export function budapestDatetimeLocalToIso(value: string): string {
   instant = new Date(wallClockAsUtc.getTime() - offsetAt(instant))
   return instant.toISOString()
 }
+
+/** Wall-clock time (`HH:mm`) in Europe/Budapest time. */
+export function formatTimeHu(date: Date): string {
+  return new Intl.DateTimeFormat('hu-HU', {
+    timeZone: 'Europe/Budapest',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).format(date)
+}

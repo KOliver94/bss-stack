@@ -78,16 +78,6 @@ function HomepageContent({ state }: { state: HomepageStateDto }) {
         Budavári Schönherz Studió
       </div>
 
-      {state.upcomingLive !== null && (
-        <Link
-          to="/"
-          aria-label="Élő adás hamarosan"
-          className="mb-[2dvh] block bg-(--orange) px-4 py-3 text-center font-bold text-white"
-        >
-          Adás hamarosan
-        </Link>
-      )}
-
       <section className="mb-[6dvh] grid grid-cols-1 gap-x-[3dvw] gap-y-[3dvh] md:grid-cols-[1.5fr_1fr]">
         {/* Hero */}
         {state.priority === 'live' && state.liveEmbedUrl !== null ? (

@@ -7,6 +7,9 @@ import UserMenu from '#/components/UserMenu.tsx'
 import { Link, useLocation } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { fetchViewerState } from '#/server/pages/viewer-fn.ts'
+import { fetchLiveBadge } from '#/server/pages/live-badge-fn.ts'
+import type { LiveBadgeDto } from '#/server/pages/live-badge-fn.ts'
+import { formatTimeHu } from '#/lib/format-date.ts'
 
 const NAV_LINKS = [
   { to: '/videos', label: 'Videók' },
@@ -25,6 +28,12 @@ export default function Navbar() {
     staleTime: 60_000,
   })
   const viewer = viewerQuery.data
+  const liveBadgeQuery = useQuery({
+    queryKey: ['live-badge'],
+    queryFn: fetchLiveBadge,
+    refetchInterval: 60_000,
+  })
+  const liveBadge = liveBadgeLabel(liveBadgeQuery.data)
 
   // Close the mobile menu on route change.
   useEffect(() => {
@@ -39,8 +48,10 @@ export default function Navbar() {
       >
         <Link
           to="/"
-          className="shrink-0 transition-transform hover:scale-105 active:scale-95"
-          aria-label="Főoldal"
+          className="relative shrink-0 transition-transform hover:scale-105 active:scale-95"
+          aria-label={
+            liveBadge === null ? 'Főoldal' : `Főoldal – adás: ${liveBadge}`
+          }
         >
           <img
             src="/bss-navbar-logo.svg"
@@ -49,6 +60,14 @@ export default function Navbar() {
             height={37}
             className="h-8 w-auto sm:h-[37px]"
           />
+          {liveBadge !== null && (
+            <span
+              aria-hidden="true"
+              className="absolute -top-1.5 -right-5 rounded-full bg-red-600 px-1.5 py-px text-[10px] leading-tight font-bold whitespace-nowrap text-white shadow-sm"
+            >
+              {liveBadge}
+            </span>
+          )}
         </Link>
 
         {/* desktop links */}
@@ -121,6 +140,17 @@ export default function Navbar() {
       )}
     </header>
   )
+}
+
+/** Logo badge text: `ÉLŐ` while on air, `Hamarosan - 19:00` before a scheduled live. */
+function liveBadgeLabel(badge: LiveBadgeDto | undefined): string | null {
+  if (badge === undefined || badge.status === 'none') {
+    return null
+  }
+  if (badge.status === 'live') {
+    return 'ÉLŐ'
+  }
+  return `Hamarosan - ${formatTimeHu(new Date(badge.startsAtIso))}`
 }
 
 /** Internal links highlight when active; external ones open the target directly. */

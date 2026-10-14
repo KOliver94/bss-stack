@@ -416,6 +416,21 @@ describe.skipIf(!hasTestDatabase)(
       const state = await getHomepageState(db, { now: clock.now() })
       expect(state.upcomingLive?.embedUrl).toContain('iiiiiiiiiii')
     })
+
+    it('graceMs: az elindulásra váró, már esedékes ütemezés is közelgő marad', async () => {
+      const db = await setupDb()
+      await db.insert(liveStreams).values({
+        youtubeVideoId: 'kkkkkkkkkkk',
+        startsAt: new Date(clock.now().getTime() - 30 * 1000),
+      })
+
+      expect(await getUpcomingLive(db, { now: clock.now() })).toBeNull()
+      const upcoming = await getUpcomingLive(db, {
+        now: clock.now(),
+        graceMs: 5 * 60 * 1000,
+      })
+      expect(upcoming?.stream.youtubeVideoId).toBe('kkkkkkkkkkk')
+    })
   },
 )
 

@@ -38,22 +38,28 @@ async function latestPublicEvents(
     .limit(limit)
 }
 
+/**
+ * The next scheduled live starting within `withinMs`. With `graceMs`, a live
+ * whose start time already passed but the runner hasn't activated yet still
+ * counts as upcoming.
+ */
 export async function getUpcomingLive(
   executor: Executor,
-  options: { now: Date; withinMs?: number },
+  options: { now: Date; withinMs?: number; graceMs?: number },
 ): Promise<{
   stream: typeof liveStreams.$inferSelect
   embedUrl: string
 } | null> {
   const withinMs = options.withinMs ?? 24 * 60 * 60 * 1000
   const horizon = new Date(options.now.getTime() + withinMs)
+  const earliest = new Date(options.now.getTime() - (options.graceMs ?? 0))
   const rows = await executor
     .select()
     .from(liveStreams)
     .where(
       and(
         eq(liveStreams.status, 'scheduled'),
-        gte(liveStreams.startsAt, options.now),
+        gte(liveStreams.startsAt, earliest),
         lte(liveStreams.startsAt, horizon),
       ),
     )
@@ -67,6 +73,25 @@ export async function getUpcomingLive(
     stream,
     embedUrl: buildYoutubeNocookieEmbedUrl(stream.youtubeVideoId),
   }
+}
+
+/** The live stream currently on air, if any. */
+export async function getActiveLive(
+  executor: Executor,
+  options: { now: Date },
+): Promise<typeof liveStreams.$inferSelect | undefined> {
+  const rows = await executor
+    .select()
+    .from(liveStreams)
+    .where(
+      and(
+        sql`${liveStreams.status} = 'active'`,
+        lte(liveStreams.startsAt, options.now),
+      ),
+    )
+    .orderBy(desc(liveStreams.activatedAt))
+    .limit(1)
+  return rows.at(0)
 }
 
 export interface HomepageState {
@@ -89,18 +114,7 @@ export async function getHomepageState(
 ): Promise<HomepageState> {
   const now = options.now
 
-  const activeLiveRows = await executor
-    .select()
-    .from(liveStreams)
-    .where(
-      and(
-        sql`${liveStreams.status} = 'active'`,
-        lte(liveStreams.startsAt, now),
-      ),
-    )
-    .orderBy(desc(liveStreams.activatedAt))
-    .limit(1)
-  const activeLive = activeLiveRows.at(0)
+  const activeLive = await getActiveLive(executor, { now })
 
   if (activeLive === undefined) {
     const highlightedId = await getHighlightedVideoId(executor)

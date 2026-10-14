@@ -6,7 +6,7 @@ import { videoThumbnailUrl } from '#/server/media/video-media.ts'
 
 const ABOUT_TEXT_VERSION = 1
 
-const ABOUT_TEXT = `A Budavári Schönherz Studió a BME Schönherz Kollázium öntevékeny köre.
+const ABOUT_TEXT = `A Budavári Schönherz Stúdió a BME Schönherz Kollégium öntevékeny köre.
 Videókat készítünk az egyetemi életről, rendezvényeinkről és a kollégium közösségéről.
 Tagjaink operatőri, vágói és riporteri gyakorlatot szereznek, miközben együtt dolgozunk a
 legjobb egyetemi videótartalmakon.`

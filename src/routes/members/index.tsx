@@ -60,11 +60,11 @@ function MembersPage() {
           />
           <MemberBlock title="Stúdiósok" members={blocksQuery.data.members} />
           <MemberBlock
-            title="Stúdiósjelöltek"
+            title="Stúdiós-jelöltek"
             members={blocksQuery.data.member_candidates}
           />
           <MemberBlock
-            title="Stúdiósjelölt-jelöltek"
+            title="Stúdiós-jelölt jelöltek"
             members={blocksQuery.data.member_candidate_candidates}
           />
           <MemberBlock

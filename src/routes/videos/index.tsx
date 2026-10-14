@@ -38,10 +38,7 @@ const loadFilterOptions = createServerFn({ method: 'GET' }).handler(
 )
 
 const VIDEO_GRID_CLASS = 'grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5'
-/**
- * Card width in `VIDEO_GRID_CLASS` inside `site-width` (100vw - 2rem, capped
- * at 96rem): 5 columns ≤ ~295px, 3 columns ≤ ~320px, 2 columns otherwise.
- */
+
 const VIDEO_THUMBNAIL_SIZES =
   '(min-width: 1024px) min(calc((100vw - 6rem) / 5), 295px), (min-width: 640px) calc((100vw - 4rem) / 3), calc((100vw - 3rem) / 2)'
 const VIDEO_SORT_OPTIONS = VIDEO_SORTS.map((sort) => ({

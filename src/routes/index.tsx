@@ -75,7 +75,7 @@ function HomepageContent({ state }: { state: HomepageStateDto }) {
   return (
     <main className="site-width">
       <div className="my-[5dvh] font-bank-gothic text-[clamp(1rem,10dvw,66px)] font-bold leading-none text-(--bss-text)">
-        Budavári Schönherz Studió
+        Budavári Schönherz Stúdió
       </div>
 
       <section className="mb-[6dvh] grid grid-cols-1 gap-x-[3dvw] gap-y-[3dvh] md:grid-cols-[1.5fr_1fr]">
@@ -184,7 +184,7 @@ function HomepageSkeleton() {
     >
       <span className="sr-only">Főoldal betöltése…</span>
       <div className="my-[5dvh] font-bank-gothic text-[clamp(1rem,10dvw,66px)] font-bold leading-none text-(--bss-text)">
-        Budavári Schönherz Studió
+        Budavári Schönherz Stúdió
       </div>
 
       <section className="mb-[6dvh] grid grid-cols-1 gap-x-[3dvw] gap-y-[3dvh] md:grid-cols-[1.5fr_1fr]">

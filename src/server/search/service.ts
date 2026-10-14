@@ -2,7 +2,10 @@ import { sql } from 'drizzle-orm'
 import type { SQL } from 'drizzle-orm'
 import type { Viewer } from '#/server/auth/viewer.ts'
 import type { Executor } from '#/server/shared/db-executor.ts'
-import { videoThumbnailUrl } from '#/server/media/video-media.ts'
+import {
+  videoAssetUrls,
+  videoThumbnailUrl,
+} from '#/server/media/video-media.ts'
 import type { VideoEncodingGroup } from '#/lib/video-media.ts'
 
 export const MIN_QUERY_LENGTH = 2
@@ -288,6 +291,7 @@ export interface VideoSearchFilters {
 }
 
 export interface DetailedVideoHit extends VideoHit {
+  keyframeUrl: string | null
   recordedAt: string | null
   viewCount: number
 }
@@ -372,20 +376,21 @@ export async function searchVideosDetailed(
   `)
 
   const rawRows = rows.rows as unknown as Array<
-    Omit<DetailedVideoHit, 'thumbnailUrl'> & VideoMediaRow & { total: number }
+    Omit<DetailedVideoHit, 'thumbnailUrl' | 'keyframeUrl'> &
+      VideoMediaRow & { total: number }
   >
   const first = rawRows.at(0)
   return {
     items: rawRows.map(
-      ({ total: _total, encodingGroup, baseFilename, ...item }) => ({
-        ...item,
-        thumbnailUrl: videoThumbnailUrl({
+      ({ total: _total, encodingGroup, baseFilename, ...item }) => {
+        const { thumbnailUrl, keyframeUrl } = videoAssetUrls({
           encodingGroup,
           baseFilename,
           hasHq: false,
           hasLq: false,
-        }),
-      }),
+        })
+        return { ...item, thumbnailUrl, keyframeUrl }
+      },
     ),
     total: rawRows.length > 0 ? Number(first?.total ?? 0) : 0,
   }

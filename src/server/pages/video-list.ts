@@ -84,6 +84,7 @@ export interface VideoListItem {
   slug: string
   title: string
   thumbnailUrl: string | null
+  keyframeUrl: string | null
 }
 
 export interface VideoListPage {
@@ -144,6 +145,7 @@ export async function getVideoListPage(
       slug: item.slug,
       title: item.title,
       thumbnailUrl: item.thumbnailUrl,
+      keyframeUrl: item.keyframeUrl,
     })),
     total: result.total,
     page: query.page,

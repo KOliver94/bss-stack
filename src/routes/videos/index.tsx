@@ -38,6 +38,12 @@ const loadFilterOptions = createServerFn({ method: 'GET' }).handler(
 )
 
 const VIDEO_GRID_CLASS = 'grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5'
+/**
+ * Card width in `VIDEO_GRID_CLASS` inside `site-width` (100vw - 2rem, capped
+ * at 96rem): 5 columns ≤ ~295px, 3 columns ≤ ~320px, 2 columns otherwise.
+ */
+const VIDEO_THUMBNAIL_SIZES =
+  '(min-width: 1024px) min(calc((100vw - 6rem) / 5), 295px), (min-width: 640px) calc((100vw - 4rem) / 3), calc((100vw - 3rem) / 2)'
 const VIDEO_SORT_OPTIONS = VIDEO_SORTS.map((sort) => ({
   value: sort,
   label: videoSortLabel(sort),
@@ -157,7 +163,12 @@ function VideoListPage() {
                   href={`/videos/${item.slug}`}
                   className="group card-surface hover-lift block shadow-[0px_2px_6px_0_rgba(0,0,0,0.25)]"
                 >
-                  <Thumbnail src={item.thumbnailUrl} alt={item.title} />
+                  <Thumbnail
+                    src={item.thumbnailUrl}
+                    largeSrc={item.keyframeUrl}
+                    sizes={VIDEO_THUMBNAIL_SIZES}
+                    alt={item.title}
+                  />
                   <span className="block truncate px-2 py-1 text-(--bss-text-secondary) group-hover:text-(--orange)">
                     {item.title}
                   </span>
@@ -215,7 +226,7 @@ function VideoFilterBar({
   return (
     <form onSubmit={submit} className="mb-6 flex flex-wrap items-end gap-3">
       <label className="flex flex-col gap-1 text-xs text-(--bss-text-secondary)">
-        Szabad szöveg
+        Kulcsszó
         <input
           value={q}
           onChange={(event) => setQ(event.target.value)}

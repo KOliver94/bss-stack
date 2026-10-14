@@ -5,14 +5,21 @@ import { useCallback, useState } from 'react'
 /** Every thumbnail is 16:9; a missing image also reserves that space. */
 export const THUMBNAIL_FALLBACK_SRC = '/video-thumbnail.png'
 
+const THUMBNAIL_WIDTH = 160
+const KEYFRAME_WIDTH = 768
+
 export default function Thumbnail({
   src,
+  largeSrc,
+  sizes,
   alt,
   className = '',
   imgClassName = '',
   loading = 'lazy',
 }: {
   src: string | null | undefined
+  largeSrc?: string | null
+  sizes?: string
   alt: string
   /** Extra classes applied to the 16:9 frame. */
   className?: string
@@ -21,6 +28,10 @@ export default function Thumbnail({
   loading?: 'lazy' | 'eager'
 }) {
   const resolvedSrc = src ?? THUMBNAIL_FALLBACK_SRC
+  const srcSet =
+    src != null && largeSrc != null
+      ? `${src} ${THUMBNAIL_WIDTH}w, ${largeSrc} ${KEYFRAME_WIDTH}w`
+      : undefined
   // We store the loaded URL rather than a plain boolean flag: this way the
   // placeholder resets automatically when `src` changes (e.g. on re-render
   // after filtering).
@@ -44,6 +55,8 @@ export default function Thumbnail({
       <img
         ref={measureRef}
         src={resolvedSrc}
+        srcSet={srcSet}
+        sizes={srcSet === undefined ? undefined : sizes}
         alt={alt}
         loading={loading}
         decoding="async"

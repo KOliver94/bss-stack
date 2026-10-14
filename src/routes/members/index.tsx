@@ -126,7 +126,7 @@ export function MemberBlock({
               {member.fullName}
             </p>
             {member.nickname !== null && (
-              <p className="text-(--bss-text-secondary)">„{member.nickname}”</p>
+              <p className="text-(--bss-text-secondary) italic">{member.nickname}</p>
             )}
             {member.leadershipRole !== null && (
               <p className="text-sm text-(--bss-text-secondary)">

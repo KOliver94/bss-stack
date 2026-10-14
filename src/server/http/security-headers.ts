@@ -2,6 +2,8 @@ import { getCachedOobConfig } from '#/server/config/load.ts'
 
 const YOUTUBE_FRAME_HOSTS =
   'https://www.youtube-nocookie.com https://www.youtube.com'
+// The contact page embeds the studio's location from Google Maps.
+const MAP_FRAME_HOSTS = 'https://www.google.com'
 // The live preview thumbnail comes from the YouTube CDN.
 const YOUTUBE_IMAGE_HOSTS = 'https://i.ytimg.com'
 const AVATAR_IMAGE_HOSTS = 'https://backstage.bsstudio.hu'
@@ -17,7 +19,7 @@ export function contentSecurityPolicy(
     "style-src 'self' 'unsafe-inline'",
     `img-src 'self' data: ${mediaHost} ${YOUTUBE_IMAGE_HOSTS} ${AVATAR_IMAGE_HOSTS}`,
     `media-src 'self' ${mediaHost}`,
-    `frame-src ${YOUTUBE_FRAME_HOSTS}`,
+    `frame-src ${YOUTUBE_FRAME_HOSTS} ${MAP_FRAME_HOSTS}`,
     "connect-src 'self'",
     "font-src 'self'",
     "object-src 'none'",

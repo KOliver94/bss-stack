@@ -1,3 +1,5 @@
+import { Link } from '@tanstack/react-router'
+
 const partners = [
   {
     name: 'AC',
@@ -62,7 +64,9 @@ const socialLinks = [
 export default function Footer() {
   return (
     <footer className="flex flex-col items-center gap-4 bg-(--darker-blue) py-[1dvh] text-white">
-      <div className="text-lg">Kapcsolat</div>
+      <Link to="/contact" className="nav-link text-lg">
+        Kapcsolat
+      </Link>
       <a href="mailto:bss@sch.bme.hu" className="text-(--orange) font-semibold">
         info@bsstudio.hu
       </a>

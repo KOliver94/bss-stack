@@ -8,7 +8,13 @@ export interface SitemapEntry {
   lastmod: string | null
 }
 
-const STATIC_PATHS = ['/videos', '/events', '/members', '/about'] as const
+const STATIC_PATHS = [
+  '/videos',
+  '/events',
+  '/members',
+  '/about',
+  '/contact',
+] as const
 
 export async function getSitemapEntries(
   executor: Executor,

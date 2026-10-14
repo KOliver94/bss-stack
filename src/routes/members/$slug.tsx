@@ -150,7 +150,7 @@ function MemberProfilePage() {
 
   return (
     <main className="site-width my-[4dvh]">
-      <title>{`${profile.fullName} | BSS`}</title>
+      <title>{`${profile.fullName} | Budavári Schönherz Stúdió`}</title>
       <meta name="description" content={meta.description} />
       <link rel="canonical" href={meta.canonical} />
       <meta property="og:title" content={profile.fullName} />

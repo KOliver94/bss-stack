@@ -83,7 +83,7 @@ function VideoDetailPage() {
   const description = detail.description?.slice(0, 300) ?? detail.title
   return (
     <main className="flex-1">
-      <title>{`${detail.title} | BSS`}</title>
+      <title>{`${detail.title} | Budavári Schönherz Stúdió`}</title>
       <meta name="description" content={description} />
       <link rel="canonical" href={canonical} />
       <meta property="og:title" content={detail.title} />

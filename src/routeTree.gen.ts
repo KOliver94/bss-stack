@@ -14,6 +14,7 @@ import { Route as AboutRouteImport } from './routes/about'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as ContactRouteImport } from './routes/contact'
 import { Route as SearchRouteImport } from './routes/search'
+import { Route as TagokRouteImport } from './routes/tagok'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as AdminAuditRouteImport } from './routes/admin/audit'
 import { Route as AdminHomepageRouteImport } from './routes/admin/homepage'
@@ -25,6 +26,9 @@ import { Route as MembersIndexRouteImport } from './routes/members/index'
 import { Route as MembersSlugRouteImport } from './routes/members/$slug'
 import { Route as MembersAlumniRouteImport } from './routes/members/alumni'
 import { Route as MembersArchivedRouteImport } from './routes/members/archived'
+import { Route as UserSlugRouteImport } from './routes/user/$slug'
+import { Route as VideoCategorySlugRouteImport } from './routes/video-category/$slug'
+import { Route as VideoSlugRouteImport } from './routes/video/$slug'
 import { Route as VideosIndexRouteImport } from './routes/videos/index'
 import { Route as VideosSlugRouteImport } from './routes/videos/$slug'
 import { Route as AdminCatalogStaffRolesRouteImport } from './routes/admin/catalog/staff-roles'
@@ -59,6 +63,11 @@ const ContactRoute = ContactRouteImport.update({
 const SearchRoute = SearchRouteImport.update({
   id: '/search',
   path: '/search',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TagokRoute = TagokRouteImport.update({
+  id: '/tagok',
+  path: '/tagok',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminIndexRoute = AdminIndexRouteImport.update({
@@ -114,6 +123,21 @@ const MembersAlumniRoute = MembersAlumniRouteImport.update({
 const MembersArchivedRoute = MembersArchivedRouteImport.update({
   id: '/members/archived',
   path: '/members/archived',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const UserSlugRoute = UserSlugRouteImport.update({
+  id: '/user/$slug',
+  path: '/user/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const VideoCategorySlugRoute = VideoCategorySlugRouteImport.update({
+  id: '/video-category/$slug',
+  path: '/video-category/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const VideoSlugRoute = VideoSlugRouteImport.update({
+  id: '/video/$slug',
+  path: '/video/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
 const VideosIndexRoute = VideosIndexRouteImport.update({
@@ -173,6 +197,7 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AdminRouteWithChildren
   '/contact': typeof ContactRoute
   '/search': typeof SearchRoute
+  '/tagok': typeof TagokRoute
   '/admin/audit': typeof AdminAuditRoute
   '/admin/homepage': typeof AdminHomepageRoute
   '/admin/members': typeof AdminMembersRoute
@@ -181,6 +206,9 @@ export interface FileRoutesByFullPath {
   '/members/$slug': typeof MembersSlugRoute
   '/members/alumni': typeof MembersAlumniRoute
   '/members/archived': typeof MembersArchivedRoute
+  '/user/$slug': typeof UserSlugRoute
+  '/video-category/$slug': typeof VideoCategorySlugRoute
+  '/video/$slug': typeof VideoSlugRoute
   '/videos/$slug': typeof VideosSlugRoute
   '/admin/': typeof AdminIndexRoute
   '/events/': typeof EventsIndexRoute
@@ -200,6 +228,7 @@ export interface FileRoutesByTo {
   '/about': typeof AboutRoute
   '/contact': typeof ContactRoute
   '/search': typeof SearchRoute
+  '/tagok': typeof TagokRoute
   '/admin/audit': typeof AdminAuditRoute
   '/admin/homepage': typeof AdminHomepageRoute
   '/admin/members': typeof AdminMembersRoute
@@ -208,6 +237,9 @@ export interface FileRoutesByTo {
   '/members/$slug': typeof MembersSlugRoute
   '/members/alumni': typeof MembersAlumniRoute
   '/members/archived': typeof MembersArchivedRoute
+  '/user/$slug': typeof UserSlugRoute
+  '/video-category/$slug': typeof VideoCategorySlugRoute
+  '/video/$slug': typeof VideoSlugRoute
   '/videos/$slug': typeof VideosSlugRoute
   '/admin': typeof AdminIndexRoute
   '/events': typeof EventsIndexRoute
@@ -229,6 +261,7 @@ export interface FileRoutesById {
   '/admin': typeof AdminRouteWithChildren
   '/contact': typeof ContactRoute
   '/search': typeof SearchRoute
+  '/tagok': typeof TagokRoute
   '/admin/audit': typeof AdminAuditRoute
   '/admin/homepage': typeof AdminHomepageRoute
   '/admin/members': typeof AdminMembersRoute
@@ -237,6 +270,9 @@ export interface FileRoutesById {
   '/members/$slug': typeof MembersSlugRoute
   '/members/alumni': typeof MembersAlumniRoute
   '/members/archived': typeof MembersArchivedRoute
+  '/user/$slug': typeof UserSlugRoute
+  '/video-category/$slug': typeof VideoCategorySlugRoute
+  '/video/$slug': typeof VideoSlugRoute
   '/videos/$slug': typeof VideosSlugRoute
   '/admin/': typeof AdminIndexRoute
   '/events/': typeof EventsIndexRoute
@@ -259,6 +295,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/contact'
     | '/search'
+    | '/tagok'
     | '/admin/audit'
     | '/admin/homepage'
     | '/admin/members'
@@ -267,6 +304,9 @@ export interface FileRouteTypes {
     | '/members/$slug'
     | '/members/alumni'
     | '/members/archived'
+    | '/user/$slug'
+    | '/video-category/$slug'
+    | '/video/$slug'
     | '/videos/$slug'
     | '/admin/'
     | '/events/'
@@ -286,6 +326,7 @@ export interface FileRouteTypes {
     | '/about'
     | '/contact'
     | '/search'
+    | '/tagok'
     | '/admin/audit'
     | '/admin/homepage'
     | '/admin/members'
@@ -294,6 +335,9 @@ export interface FileRouteTypes {
     | '/members/$slug'
     | '/members/alumni'
     | '/members/archived'
+    | '/user/$slug'
+    | '/video-category/$slug'
+    | '/video/$slug'
     | '/videos/$slug'
     | '/admin'
     | '/events'
@@ -314,6 +358,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/contact'
     | '/search'
+    | '/tagok'
     | '/admin/audit'
     | '/admin/homepage'
     | '/admin/members'
@@ -322,6 +367,9 @@ export interface FileRouteTypes {
     | '/members/$slug'
     | '/members/alumni'
     | '/members/archived'
+    | '/user/$slug'
+    | '/video-category/$slug'
+    | '/video/$slug'
     | '/videos/$slug'
     | '/admin/'
     | '/events/'
@@ -343,10 +391,14 @@ export interface RootRouteChildren {
   AdminRoute: typeof AdminRouteWithChildren
   ContactRoute: typeof ContactRoute
   SearchRoute: typeof SearchRoute
+  TagokRoute: typeof TagokRoute
   EventsSlugRoute: typeof EventsSlugRoute
   MembersSlugRoute: typeof MembersSlugRoute
   MembersAlumniRoute: typeof MembersAlumniRoute
   MembersArchivedRoute: typeof MembersArchivedRoute
+  UserSlugRoute: typeof UserSlugRoute
+  VideoCategorySlugRoute: typeof VideoCategorySlugRoute
+  VideoSlugRoute: typeof VideoSlugRoute
   VideosSlugRoute: typeof VideosSlugRoute
   EventsIndexRoute: typeof EventsIndexRoute
   MembersIndexRoute: typeof MembersIndexRoute
@@ -388,6 +440,13 @@ declare module '@tanstack/react-router' {
       path: '/search'
       fullPath: '/search'
       preLoaderRoute: typeof SearchRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/tagok': {
+      id: '/tagok'
+      path: '/tagok'
+      fullPath: '/tagok'
+      preLoaderRoute: typeof TagokRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/': {
@@ -465,6 +524,27 @@ declare module '@tanstack/react-router' {
       path: '/members/archived'
       fullPath: '/members/archived'
       preLoaderRoute: typeof MembersArchivedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/user/$slug': {
+      id: '/user/$slug'
+      path: '/user/$slug'
+      fullPath: '/user/$slug'
+      preLoaderRoute: typeof UserSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/video-category/$slug': {
+      id: '/video-category/$slug'
+      path: '/video-category/$slug'
+      fullPath: '/video-category/$slug'
+      preLoaderRoute: typeof VideoCategorySlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/video/$slug': {
+      id: '/video/$slug'
+      path: '/video/$slug'
+      fullPath: '/video/$slug'
+      preLoaderRoute: typeof VideoSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/videos/': {
@@ -580,10 +660,14 @@ const rootRouteChildren: RootRouteChildren = {
   AdminRoute: AdminRouteWithChildren,
   ContactRoute: ContactRoute,
   SearchRoute: SearchRoute,
+  TagokRoute: TagokRoute,
   EventsSlugRoute: EventsSlugRoute,
   MembersSlugRoute: MembersSlugRoute,
   MembersAlumniRoute: MembersAlumniRoute,
   MembersArchivedRoute: MembersArchivedRoute,
+  UserSlugRoute: UserSlugRoute,
+  VideoCategorySlugRoute: VideoCategorySlugRoute,
+  VideoSlugRoute: VideoSlugRoute,
   VideosSlugRoute: VideosSlugRoute,
   EventsIndexRoute: EventsIndexRoute,
   MembersIndexRoute: MembersIndexRoute,

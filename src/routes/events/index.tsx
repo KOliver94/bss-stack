@@ -57,6 +57,7 @@ export const Route = createFileRoute('/events/')({
 function EventListSkeleton() {
   return (
     <main className="site-width my-[4dvh]">
+      <title>Események | Budavári Schönherz Stúdió</title>
       <h1 className="mb-6 text-3xl font-bold text-(--bss-text)">Események</h1>
       <ThumbnailGridSkeleton
         count={12}
@@ -86,6 +87,7 @@ function EventListPageComponent() {
 
   return (
     <main className="site-width my-[4dvh]">
+      <title>Események | Budavári Schönherz Stúdió</title>
       <h1 className="mb-6 text-3xl font-bold text-(--bss-text)">Események</h1>
 
       {listQuery.isPending && (

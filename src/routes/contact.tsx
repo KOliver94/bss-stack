@@ -60,7 +60,7 @@ export const Route = createFileRoute('/contact')({
 function ContactPage() {
   return (
     <main className="site-width my-[4dvh]">
-      <title>Kapcsolat | BSS</title>
+      <title>Kapcsolat | Budavári Schönherz Stúdió</title>
       <h1 className="text-3xl font-bold text-(--bss-text)">Kapcsolat</h1>
       <p className="mt-2 text-lg text-(--bss-text-secondary)">
         Keress minket – miben segíthetünk?

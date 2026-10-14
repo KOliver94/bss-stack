@@ -86,7 +86,7 @@ function EventDetailPageComponent() {
 
   return (
     <main className="site-width my-[4dvh]">
-      <title>{detail.title} | BSS</title>
+      <title>{`${detail.title} | Budavári Schönherz Stúdió`}</title>
       <meta name="description" content={description} />
       <link rel="canonical" href={canonical} />
       <meta property="og:title" content={detail.title} />

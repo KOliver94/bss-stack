@@ -87,6 +87,7 @@ export const Route = createFileRoute('/videos/')({
 function VideoListSkeleton() {
   return (
     <main className="site-width my-[4dvh]">
+      <title>Videók | Budavári Schönherz Stúdió</title>
       <h1 className="mb-6 text-3xl font-bold text-(--bss-text)">Videók</h1>
       <ThumbnailGridSkeleton
         count={10}
@@ -120,6 +121,7 @@ function VideoListPage() {
 
   return (
     <main className="site-width my-[4dvh]">
+      <title>Videók | Budavári Schönherz Stúdió</title>
       <h1 className="mb-6 text-3xl font-bold text-(--bss-text)">Videók</h1>
 
       <VideoFilterBar

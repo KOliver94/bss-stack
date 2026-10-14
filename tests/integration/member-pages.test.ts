@@ -206,6 +206,35 @@ describe.skipIf(!hasTestDatabase)('öregtagok aloldal', () => {
     expect(alumni.title).toBe('Öregtagok')
     expect(alumni.items.map((member) => member.username)).toEqual(['oregtag'])
   })
+
+  it('belépési év szerint csökkenően, azon belül név szerint', async () => {
+    const db = await setupDb()
+    const alumni: Array<[string, number | null]> = [
+      ['Béla', 2019],
+      ['Anna', 2021],
+      ['Cecil', null],
+      ['Aladár', 2019],
+    ]
+    for (const [fullName, joinedYear] of alumni) {
+      await seedMember(db, {
+        sub: fullName,
+        username: fullName,
+        fullName,
+        joinedYear,
+        membershipStatus: 'ALUMNI',
+      })
+    }
+
+    const page = await getMemberArchivePage(db, 'alumni')
+    expect(
+      page.items.map((member) => [member.fullName, member.joinedYear]),
+    ).toEqual([
+      ['Anna', 2021],
+      ['Aladár', 2019],
+      ['Béla', 2019],
+      ['Cecil', null],
+    ])
+  })
 })
 
 describe.skipIf(!hasTestDatabase)('BSS-023: tagprofil', () => {

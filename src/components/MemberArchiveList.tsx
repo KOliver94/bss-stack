@@ -1,7 +1,7 @@
 import { Link } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { loadArchiveMembersServer } from '#/server/pages/member-archive-fn.ts'
-import type { ArchiveKind } from '#/server/pages/members.ts'
+import type { ArchiveKind, ArchiveMemberCard } from '#/server/pages/members.ts'
 import { EmptyState } from '#/components/PageStates.tsx'
 import { memberSlug } from '#/lib/member-slug.ts'
 
@@ -47,7 +47,7 @@ export function MemberArchiveList({
       )}
       {listQuery.isSuccess && (
         <>
-          <h1 className="mb-6 text-3xl font-bold text-(--bss-text)">
+          <h1 className="mb-6 text-center text-3xl font-bold text-(--bss-text)">
             {listQuery.data.title}
           </h1>
           {listQuery.data.items.length === 0 ? (
@@ -57,30 +57,18 @@ export function MemberArchiveList({
             />
           ) : (
             <>
-              <div className="mt-4 flex flex-wrap justify-center gap-4">
-                {listQuery.data.items.map((member) => (
-                  <Link
-                    key={member.sub}
-                    to="/members/$slug"
-                    params={{ slug: memberSlug(member) }}
-                    className="flex w-[178px] flex-col items-center border border-(--card-border) bg-(--members-card-bg) p-3 text-center shadow-[0_2px_2px_rgba(0,0,0,0.2)]"
-                  >
-                    <img
-                      src={member.avatarUrl ?? '/default-avatar.png'}
-                      alt={member.fullName}
-                      className="h-[178px] w-[178px] overflow-hidden object-cover"
-                    />
-                    <p className="text-lg font-bold text-(--bss-text-secondary)">
-                      {member.fullName}
-                    </p>
-                    {member.nickname !== null && (
-                      <p className="text-(--bss-text-secondary)">
-                        „{member.nickname}”
-                      </p>
-                    )}
-                  </Link>
-                ))}
-              </div>
+              {kind === 'alumni' ? (
+                groupByJoinedYear(listQuery.data.items).map((group) => (
+                  <section key={group.year ?? 'unknown'} className="mt-8">
+                    <h2 className="text-center text-2xl font-bold text-(--bss-text)">
+                      {group.year ?? 'Ismeretlen belépési év'}
+                    </h2>
+                    <MemberCardGrid members={group.members} />
+                  </section>
+                ))
+              ) : (
+                <MemberCardGrid members={listQuery.data.items} />
+              )}
               {listQuery.data.totalPages > 1 && (
                 <nav
                   aria-label="Tagok lapozása"
@@ -114,4 +102,48 @@ export function MemberArchiveList({
       )}
     </main>
   )
+}
+
+function MemberCardGrid({ members }: { members: Array<ArchiveMemberCard> }) {
+  return (
+    <div className="mt-4 flex flex-wrap justify-center gap-4">
+      {members.map((member) => (
+        <Link
+          key={member.sub}
+          to="/members/$slug"
+          params={{ slug: memberSlug(member) }}
+          className="flex w-[178px] flex-col items-center border border-(--card-border) bg-(--members-card-bg) p-3 text-center shadow-[0_2px_2px_rgba(0,0,0,0.2)]"
+        >
+          <img
+            src={member.avatarUrl ?? '/default-avatar.png'}
+            alt={member.fullName}
+            className="h-[178px] w-[178px] overflow-hidden object-cover"
+          />
+          <p className="text-lg font-bold text-(--bss-text-secondary)">
+            {member.fullName}
+          </p>
+          {member.nickname !== null && (
+            <p className="text-(--bss-text-secondary)">„{member.nickname}”</p>
+          )}
+        </Link>
+      ))}
+    </div>
+  )
+}
+
+/** Items arrive sorted by join year, so equal years are always adjacent. */
+function groupByJoinedYear(members: Array<ArchiveMemberCard>) {
+  const groups: Array<{
+    year: number | null
+    members: Array<ArchiveMemberCard>
+  }> = []
+  for (const member of members) {
+    const last = groups.at(-1)
+    if (last !== undefined && last.year === member.joinedYear) {
+      last.members.push(member)
+    } else {
+      groups.push({ year: member.joinedYear, members: [member] })
+    }
+  }
+  return groups
 }

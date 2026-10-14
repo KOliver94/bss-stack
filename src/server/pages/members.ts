@@ -1,4 +1,4 @@
-import { and, asc, eq, isNotNull, isNull, or, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, isNotNull, isNull, or, sql } from 'drizzle-orm'
 import type { SQL } from 'drizzle-orm'
 import type { Viewer } from '#/server/auth/viewer.ts'
 import { formatAcademicSemester } from '#/server/members/member-fields.ts'
@@ -102,8 +102,22 @@ const ARCHIVE_CONDITIONS: Record<ArchiveKind, SQL> = {
   )!,
 }
 
+// Alumni are listed grouped by the year they joined, newest year first.
+const ARCHIVE_ORDER: Record<ArchiveKind, Array<SQL>> = {
+  archived: [asc(memberCache.fullName), asc(memberCache.sub)],
+  alumni: [
+    sql`${desc(memberCache.joinedYear)} nulls last`,
+    asc(memberCache.fullName),
+    asc(memberCache.sub),
+  ],
+}
+
+export interface ArchiveMemberCard extends PublicMemberCard {
+  joinedYear: number | null
+}
+
 export interface MemberListPage {
-  items: Array<PublicMemberCard>
+  items: Array<ArchiveMemberCard>
   total: number
   page: number
   totalPages: number
@@ -131,10 +145,11 @@ export async function getMemberArchivePage(
         fullName: memberCache.fullName,
         nickname: memberCache.nickname,
         avatarUrl: memberCache.avatarUrl,
+        joinedYear: memberCache.joinedYear,
       })
       .from(memberCache)
       .where(condition)
-      .orderBy(asc(memberCache.fullName), asc(memberCache.sub))
+      .orderBy(...ARCHIVE_ORDER[kind])
       .limit(MEMBER_PAGE_SIZE)
       .offset((page - 1) * MEMBER_PAGE_SIZE),
     executor

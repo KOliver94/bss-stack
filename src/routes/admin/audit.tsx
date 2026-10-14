@@ -286,7 +286,16 @@ const auditColumns: Array<AdminColumn<AuditListItem>> = [
     primary: true,
     render: (row) => formatAdminDateTimeHu(row.occurredAt),
   },
-  { key: 'actor', header: 'Szereplő', render: (row) => row.actor },
+  {
+    key: 'actor',
+    header: 'Szereplő',
+    render: (row) =>
+      row.actorName !== null ? (
+        <span title={row.actor}>{row.actorName}</span>
+      ) : (
+        row.actor
+      ),
+  },
   { key: 'action', header: 'Művelet', render: (row) => row.action },
   {
     key: 'entity',

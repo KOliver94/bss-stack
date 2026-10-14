@@ -1,6 +1,6 @@
 import { and, desc, eq, gte, lte, sql } from 'drizzle-orm'
 import type { SQL } from 'drizzle-orm'
-import { auditLog } from '#/db/schema.ts'
+import { auditLog, memberCache } from '#/db/schema.ts'
 import type { Executor } from '#/server/shared/db-executor.ts'
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/
@@ -43,6 +43,8 @@ export function parseAuditFilters(raw: Record<string, unknown>): AuditFilters {
 export interface AuditListItem {
   id: number
   actor: string
+  /** The acting member's full name; null for `system` or unknown subs. */
+  actorName: string | null
   entityType: string
   entityId: string
   action: string
@@ -94,6 +96,7 @@ export async function getAuditPage(
       .select({
         id: auditLog.id,
         actor: auditLog.actor,
+        actorName: memberCache.fullName,
         entityType: auditLog.entityType,
         entityId: auditLog.entityId,
         action: auditLog.action,
@@ -102,6 +105,7 @@ export async function getAuditPage(
         occurredAt: auditLog.occurredAt,
       })
       .from(auditLog)
+      .leftJoin(memberCache, eq(memberCache.sub, auditLog.actor))
       .where(where)
       .orderBy(desc(auditLog.occurredAt), desc(auditLog.id))
       .limit(query.perPage)

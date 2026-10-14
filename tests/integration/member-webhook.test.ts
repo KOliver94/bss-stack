@@ -511,7 +511,14 @@ describe.skipIf(!hasTestDatabase)('tagfrissítő webhook műveletek', () => {
     const archived = (await getMemberArchivePage(ctx.db, 'archived')).items.map(
       (card) => card.sub,
     )
-    expect(archived.sort()).toEqual(['42', '43'])
+    // The empty replace retires the admin fixture profiles as well.
+    expect(archived.sort()).toEqual([
+      '42',
+      '43',
+      'sub-admin-leader',
+      'sub-admin-member',
+      'sub-admin-schonherz',
+    ])
   })
 
   it('a félév ÉÉÉÉ/ÉÉÉÉ/N alakban megy be és ugyanúgy jön vissza', async () => {

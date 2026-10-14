@@ -60,6 +60,13 @@ describe.skipIf(!hasTestDatabase)('BSS-023: aktív tagoldal blokkjai', () => {
       membershipStatus: 'MEMBER',
     })
     await seedMember(db, {
+      sub: 'lead-candidate',
+      username: 'vezeto-jelolt',
+      fullName: 'Vezető Jelölt Kinga',
+      leadershipRole: 'Gazdaságis',
+      membershipStatus: 'MEMBER_CANDIDATE',
+    })
+    await seedMember(db, {
       sub: 'm1',
       username: 'studios',
       fullName: 'Stúdiós Béla',
@@ -100,8 +107,9 @@ describe.skipIf(!hasTestDatabase)('BSS-023: aktív tagoldal blokkjai', () => {
     const blocks = await getActiveMemberBlocks(db)
     expect(blocks.leadership.map((member) => member.username)).toEqual([
       'vezeto',
+      'vezeto-jelolt',
     ])
-    // A vezetőségi tag (stúdiós státuszával együtt) nem ismétlődik a stúdiósoknál.
+    // A vezetőségi tag státuszától függetlenül nem ismétlődik a többi blokkban.
     expect(blocks.members.map((member) => member.username)).toEqual(['studios'])
     expect(blocks.member_candidates.map((member) => member.username)).toEqual([
       'jelolt',

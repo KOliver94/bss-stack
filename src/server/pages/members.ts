@@ -66,24 +66,21 @@ export async function getActiveMemberBlocks(
     leadershipRole: null,
   })
 
+  // Leaders appear only in the leadership block, whatever their status.
+  const nonLeaders = rows.filter((row) => row.leadershipRole === null)
+  const byStatus = (status: MembershipStatus) =>
+    nonLeaders.filter((row) => row.status === status).map(toCard)
+
   return {
     // Positions are free text, so there is nothing to rank them by: the
     // leadership block keeps the name order of every other block.
     leadership: rows
       .filter((row) => row.leadershipRole !== null)
       .map((row) => ({ ...toCard(row), leadershipRole: row.leadershipRole })),
-    members: rows
-      .filter((row) => row.leadershipRole === null && row.status === 'MEMBER')
-      .map(toCard),
-    member_candidates: rows
-      .filter((row) => row.status === 'MEMBER_CANDIDATE')
-      .map(toCard),
-    member_candidate_candidates: rows
-      .filter((row) => row.status === 'MEMBER_CANDIDATE_CANDIDATE')
-      .map(toCard),
-    seniorActive: rows
-      .filter((row) => row.status === 'ACTIVE_ALUMNI')
-      .map(toCard),
+    members: byStatus('MEMBER'),
+    member_candidates: byStatus('MEMBER_CANDIDATE'),
+    member_candidate_candidates: byStatus('MEMBER_CANDIDATE_CANDIDATE'),
+    seniorActive: byStatus('ACTIVE_ALUMNI'),
   }
 }
 

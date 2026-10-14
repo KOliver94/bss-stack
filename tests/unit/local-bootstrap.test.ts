@@ -102,6 +102,21 @@ describe('lokális Authentik bootstrap', () => {
     expect(yaml).toContain('password: "jelszo1"')
   })
 
+  it('minden !KeyOf hivatkozás létező blueprint bejegyzésre mutat', () => {
+    const yaml = renderBlueprint({
+      authentikSecretKey: 'secret-key-value',
+      oidcClientSecret: 'client-secret-value',
+      passwords: {},
+    })
+    const ids = new Set(
+      [...yaml.matchAll(/^\s+id: (\S+)$/gm)].map((match) => match[1]),
+    )
+    const refs = [...yaml.matchAll(/!KeyOf (\S+)/g)].map((match) => match[1])
+
+    expect(refs.length).toBeGreaterThan(0)
+    expect(refs.filter((ref) => !ids.has(ref))).toEqual([])
+  })
+
   it('idempotens: újrafuttatás nem generál új titkokat és nem duplikál', () => {
     const dir = tempDir()
     const first = writeLocalFiles(dir)
@@ -136,5 +151,30 @@ describe('lokális Authentik bootstrap', () => {
     writeLocalFiles(dir)
     const after = JSON.parse(readFileSync(secretsPath, 'utf-8'))
     expect(after.oidcClientSecret).toBe('megmarado-ertek')
+  })
+
+  it('régi titokfájlt kiegészíti az újonnan felvett felhasználók jelszavával', () => {
+    const dir = tempDir()
+    writeLocalFiles(dir)
+    const secretsPath = join(dir, 'oob', 'local-secrets.json')
+    const original = JSON.parse(readFileSync(secretsPath, 'utf-8'))
+    const keptPassword = original.passwords['tag-dev']
+    delete original.passwords['admin-dev']
+    writeFileSync(secretsPath, JSON.stringify(original))
+
+    const result = writeLocalFiles(dir)
+    const after = JSON.parse(readFileSync(secretsPath, 'utf-8'))
+    const blueprint = readFileSync(
+      join(dir, 'oob', 'authentik', 'blueprints', 'bss-local.yaml'),
+      'utf-8',
+    )
+
+    expect(after.passwords['admin-dev']).toEqual(expect.any(String))
+    expect(after.passwords['admin-dev']).not.toBe('')
+    expect(result.secrets.passwords['admin-dev']).toBe(
+      after.passwords['admin-dev'],
+    )
+    expect(after.passwords['tag-dev']).toBe(keptPassword)
+    expect(blueprint).not.toContain('password: "undefined"')
   })
 })

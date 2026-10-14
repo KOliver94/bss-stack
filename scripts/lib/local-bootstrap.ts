@@ -337,7 +337,6 @@ export function renderBlueprint(secrets: LocalSecrets): string {
     '        - !KeyOf id-map-profile',
     '        - !KeyOf id-map-email',
     '        - !KeyOf id-map-bss',
-    '        - !KeyOf id-map-api-scope',
     '      # user_id sub: a webhookon beküldött sub értéke az API pk-ja',
     '      sub_mode: user_id',
     '      access_token_validity: hours=1',
@@ -398,6 +397,16 @@ export function writeLocalFiles(baseDir: string): {
   if (existsSync(secretsPath)) {
     secrets = JSON.parse(readFileSync(secretsPath, 'utf-8')) as LocalSecrets
     // Újabb mezők utólagos kiegészítése régi titokfájlon (idempotens futás).
+    let backfilled = false
+    for (const user of LOCAL_USERS) {
+      if (!(user.username in secrets.passwords)) {
+        secrets.passwords[user.username] = generateToken()
+        backfilled = true
+      }
+    }
+    if (backfilled) {
+      writeFileSync(secretsPath, `${JSON.stringify(secrets, null, 2)}\n`)
+    }
   } else {
     secrets = generateLocalSecrets()
     writeFileSync(secretsPath, `${JSON.stringify(secrets, null, 2)}\n`)

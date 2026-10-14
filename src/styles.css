@@ -152,8 +152,8 @@ html {
 }
 
 body {
-  background-color: var(--bg);
-  background-image: var(--bg-pattern);
+  background-image:
+    var(--bg-pattern), linear-gradient(var(--bg), var(--bg));
   background-repeat: repeat;
   background-position: center top;
   -webkit-font-smoothing: antialiased;
@@ -371,16 +371,21 @@ body {
  * viewport. This lets grids, tables and media use the available width while
  * retaining safe mobile edges and caps ultra-wide layouts at 96rem. */
 @utility site-width {
-  width: calc(100% - 2rem);
+  --site-gutter: 1rem;
+  width: calc(
+    100% -
+      max(var(--site-gutter), env(safe-area-inset-left)) -
+      max(var(--site-gutter), env(safe-area-inset-right))
+  );
   max-width: 96rem;
   margin-inline: auto;
 
   @media (min-width: 40rem) {
-    width: calc(100% - 3rem);
+    --site-gutter: 1.5rem;
   }
 
   @media (min-width: 64rem) {
-    width: calc(100% - 4rem);
+    --site-gutter: 2rem;
   }
 }
 

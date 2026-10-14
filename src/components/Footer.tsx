@@ -63,7 +63,7 @@ export const SOCIAL_LINKS = [
 
 export default function Footer() {
   return (
-    <footer className="flex flex-col items-center gap-4 bg-(--darker-blue) py-[1dvh] text-white">
+    <footer className="flex flex-col items-center gap-4 bg-(--darker-blue) pt-[1dvh] pb-[calc(1dvh+env(safe-area-inset-bottom))] text-white">
       <Link to="/contact" className="nav-link text-lg">
         Kapcsolat
       </Link>

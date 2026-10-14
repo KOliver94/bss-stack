@@ -283,14 +283,12 @@ describe.skipIf(!hasTestDatabase)('BSS-018: részletes videószűrés', () => {
     })
     expect(andFiltered.total).toBe(2)
 
-    // Eseményszűrő:
     const byEvent = await searchVideosDetailed(db, {
       viewer: memberViewer,
       eventId,
     })
     expect(byEvent.total).toBe(2)
 
-    // Dátumtartomány:
     const byDate = await searchVideosDetailed(db, {
       viewer: memberViewer,
       recordedFrom: '2025-01-01',

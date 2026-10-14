@@ -75,7 +75,6 @@ export function errorResponse(error: unknown): Response {
   if (error instanceof EntityNotFoundError) {
     return jsonResponse(404, { error: 'not_found', message: error.message })
   }
-  // TagNotFoundError / StaffRoleNotFoundError / ConfirmationMismatchError
   if (error instanceof Error && 'name' in error) {
     if (
       error.name === 'TagNotFoundError' ||

@@ -138,7 +138,6 @@ export async function renameSlugWithHistory(
   return newSlug
 }
 
-/** Resolve an old slug to an entity identifier (for redirects). */
 export async function resolveSlugRedirect(
   executor: Executor,
   entityType: SlugEntityType,

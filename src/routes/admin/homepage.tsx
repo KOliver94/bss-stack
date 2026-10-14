@@ -87,7 +87,6 @@ function HomepageAdminPage() {
 
 type HomepageAdminPayload = Awaited<ReturnType<typeof getHomepageAdminData>>
 
-/** Video list for the searchable select. */
 function videoOptions(
   videos: HomepageAdminPayload['selectableVideos'],
 ): Array<SearchSelectOption> {

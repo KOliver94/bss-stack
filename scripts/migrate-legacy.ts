@@ -35,10 +35,8 @@ import { parseAcademicSemester } from '#/server/members/member-fields.ts'
 // tiny helpers
 // ---------------------------------------------------------------------------
 function stripHtml(html: string): string {
-  // Remove tags, decode a few entities, normalize whitespace.
   // MySQL body may contain HTML like <p>, <a>, <img style="display:none">
   let s = html.replace(/<[^>]*>/g, ' ')
-  // decode common entities
   s = s
     .replace(/&nbsp;/g, ' ')
     .replace(/&amp;/g, '&')
@@ -49,7 +47,6 @@ function stripHtml(html: string): string {
     .replace(/&#x27;/g, "'")
     .replace(/&apos;/g, "'")
   s = s.replace(/\s+/g, ' ').trim()
-  // Truncate with respect to TEXT_LIMITS
   if (s.length > TEXT_LIMITS.description)
     s = s.slice(0, TEXT_LIMITS.description)
   return s || ''
@@ -169,7 +166,6 @@ function parseBackstageCopy(section: string): string[][] {
 // ---------------------------------------------------------------------------
 // Member migration
 // ---------------------------------------------------------------------------
-// Backstage member row shape is handled as string[][] from COPY, no need for separate type
 
 type MembershipStatus = (typeof membershipStatusEnum.enumValues)[number]
 
@@ -227,14 +223,13 @@ function buildMemberCachePayload(opts: {
     if (stripped.length > 0) intro = stripped.slice(0, 10_000)
     else intro = null
   }
-  // nickname: prefer Backstage nickname, fallback to Drupal
   return {
     sub: opts.sub,
     username: opts.username,
     fullName:
       truncate(opts.fullName, TEXT_LIMITS.title) ?? opts.fullName.slice(0, 200),
     nickname: opts.nickname ? truncate(opts.nickname, 200) : null,
-    avatarUrl: opts.avatarUrl, // we chose NOT to migrate avatar per owner decision, so this will be null
+    avatarUrl: opts.avatarUrl,
     membershipStatus: opts.membershipStatus,
     leadershipRole: opts.leadershipRole
       ? truncate(opts.leadershipRole, 200)
@@ -312,7 +307,6 @@ async function migrateMembers(
   console.log('\n=== Members (Backstage) ===')
   const memberRows = parseBackstageCopy('Member')
   // columns: id, firstName, lastName, nickname, email, mobile, avatarUrl, portraitUrl, university, major, dormRoom, status, joinedSemester, websiteUserId, archived, archivedAt, createdAt, updatedAt
-  // Need also LeadershipRole
   const leadershipRows = parseBackstageCopy('LeadershipRole')
   const leadershipLabels = new Map<string, string[]>()
   for (const cols of leadershipRows) {
@@ -325,10 +319,8 @@ async function migrateMembers(
     leadershipLabels.set(memberId, labels)
   }
 
-  // Build intro lookup: websiteUserId -> introduction (Drupal fid 13)
-  // introByUid is Map<uid, string>
-  // For each member, username = derived from Drupal users.name where uid = websiteUserId, via mysql query later, but we can also derive from backstage's email? However owner expects username to be the Drupal name (like "d6", "misika").
-  // So we need to fetch Drupal users mapping.
+  // Usernames must be the Drupal login names (like "d6", "misika"), linked via
+  // Backstage's websiteUserId; introductions come from profile_values fid 13.
   const drupalRows = mysqlJson(`
     SELECT JSON_OBJECT(
       'uid', u.uid,
@@ -364,8 +356,6 @@ async function migrateMembers(
   const websiteUserIdToDrupal = new Map(
     drupalUsers.map((user) => [String(user.uid), user]),
   )
-  // Also need fullName override from profile_values? But Backstage already has firstName/lastName, so we can construct fullName.
-  // For members without websiteUserId or without Drupal name (e.g., legacy synthetic ids like x_...), we synthesize username from id or email.
 
   let created = 0
   let updated = 0
@@ -400,13 +390,12 @@ async function migrateMembers(
     const websiteUserId = websiteUserIdRaw !== '\\N' ? websiteUserIdRaw : null
     const nickname =
       nicknameRaw !== '\\N' && nicknameRaw !== '' ? nicknameRaw : null
-    // avatar not migrated per owner decision
+    // Avatars are deliberately not migrated (owner decision).
     const avatarUrl: string | null = null
     const status = mapMembershipStatus(statusRaw)
     const leadershipRole = leadershipLabels.get(id)?.join(', ') ?? null
     const archived = archivedRaw === 't'
 
-    // Determine username
     let username: string | null = null
     let drupalIntro: string | null = null
     if (websiteUserId && websiteUserIdToDrupal.has(websiteUserId)) {
@@ -414,7 +403,8 @@ async function migrateMembers(
       username = drupalUser.username
       drupalIntro = drupalUser.introduction
     } else {
-      // Fallback: synthesize from email prefix or id
+      // No linked Drupal account (e.g. synthetic x_... ids): synthesize from
+      // email prefix or id.
       if (email && email !== '\\N') {
         const prefix = email
           .split('@')[0]
@@ -435,7 +425,6 @@ async function migrateMembers(
     // status itself is kept so a later restore lands on the right listing.
     const finalStatus = status
 
-    // Build payload
     const payload = buildMemberCachePayload({
       sub: id,
       username: username.toLowerCase(),
@@ -447,9 +436,6 @@ async function migrateMembers(
       joinedSemesterRaw: joinedSemesterRaw === '\\N' ? null : joinedSemesterRaw,
       introduction: drupalIntro,
     })
-
-    // Deduplicate username: if conflict, append suffix
-    // We will handle at DB level, but for dry-run we collect.
 
     artifacts.push({
       sub: id,
@@ -470,22 +456,18 @@ async function migrateMembers(
     if (opts.dryRun) continue
     if (!db) throw new Error('Postgres connection is missing in execute mode')
 
-    // Upsert into memberCache
-    // Check existing by sub
     const existing = await db
       .select()
       .from(memberCache)
       .where(eq(memberCache.sub, id))
       .limit(1)
     if (existing.length === 0) {
-      // Also check username collision with different sub
       const byUsername = await db
         .select()
         .from(memberCache)
         .where(eq(memberCache.username, payload.username!))
         .limit(1)
       if (byUsername.length > 0 && byUsername[0].sub !== id) {
-        // Conflict: make username unique by appending suffix
         payload.username = `${payload.username}-${id.slice(0, 4)}`
       }
       await db.insert(memberCache).values({
@@ -502,7 +484,6 @@ async function migrateMembers(
       })
       created++
     } else {
-      // Update if differ
       const cur = existing[0]
       const needsUpdate =
         cur.username !== payload.username ||
@@ -621,7 +602,6 @@ async function migrateMembers(
     `Members: parsed ${memberRows.length}, artifacts ${artifacts.length}, dryRun=${opts.dryRun}, created=${created} updated=${updated} skipped=${skipped}`,
   )
 
-  // Write artifact
   const outPath = join(process.cwd(), 'oob', 'migrate-members.json')
   mkdirSync(join(process.cwd(), 'oob'), { recursive: true })
   writeFileSync(outPath, JSON.stringify(artifacts, null, 2))
@@ -651,12 +631,6 @@ async function migrateEventsAndVideos(
   const eventRows = mysqlJson(eventJsonQuery)
   console.log(`Fetched ${eventRows.length} events from MySQL`)
 
-  // We will fetch videos after events to know which video belongs to which event? But old schema has no direct event link.
-  // So thumbnail generation will be heuristic: for each event, find videos whose shootingDate year matches event created year and title contains event keyword? Simpler: leave thumbnail generation to later when videos are known, but for now we generate thumbnails only if we can find at least one video whose recorded year equals event year.
-  // Instead, we can for each event, query videos whose term matches event-like? Not reliable.
-  // So we will first fetch videos, then for each event choose the most recent video whose slug contains event slug fragment.
-
-  // Prepare event payloads
   const eventPayloads: Array<{
     key: string
     slug: string
@@ -687,7 +661,6 @@ async function migrateEventsAndVideos(
     } else {
       slug = slugify(title)
     }
-    // Ensure slug length and not empty
     slug = slug ? slugify(slug) : slugify(title)
     if (!slug) slug = `event-${nid}`
     if (slug.length > TEXT_LIMITS.slug) slug = slug.slice(0, TEXT_LIMITS.slug)
@@ -762,8 +735,7 @@ async function migrateEventsAndVideos(
   }
 
   console.log('\n=== Videos (fetching ...) ===')
-  // Fetch videos via JSON, but splitted to avoid huge single query hitting max packet.
-  // We'll batch by nid range.
+  // Batched by nid range so a single huge query doesn't hit MySQL's max packet size.
   const maxNidQuery = `SELECT MAX(nid) as mx FROM node WHERE type='video'`
   const maxRows = mysqlJson(maxNidQuery)
   const maxNid = Number(maxRows[0]['mx'] ?? 4000)
@@ -826,7 +798,6 @@ async function migrateEventsAndVideos(
     )
   }
 
-  // Fetch tags per video
   const tagsQuery = `SELECT JSON_OBJECT('vid', tn.vid, 'name', td.name) FROM term_node tn JOIN term_data td ON td.tid=tn.tid JOIN node n ON n.vid=tn.vid WHERE n.type='video'`
   const tagRows = mysqlJson(tagsQuery)
   const tagsByVid = new Map<number, string[]>()
@@ -856,7 +827,6 @@ async function migrateEventsAndVideos(
     if (title) allHistoricalRoles.add(title)
   }
 
-  // Fetch songs per video (multivalue)
   const songsQuery = `SELECT JSON_OBJECT('vid', vid, 'song', field_music_value) FROM content_field_music WHERE field_music_value IS NOT NULL AND field_music_value <> ''`
   const songRows = mysqlJson(songsQuery)
   const songsByVid = new Map<number, string[]>()
@@ -869,9 +839,7 @@ async function migrateEventsAndVideos(
     songsByVid.get(vid)!.push(song)
   }
 
-  // Fetch staff per video
   // content_field_cast_list -> field_cast_list_item_id -> content_type_cast_element -> uid + cue_nid -> role name
-  // Also need username via users
   const staffQuery = `
     SELECT JSON_OBJECT(
       'vid', cfcl.vid,
@@ -900,14 +868,12 @@ async function migrateEventsAndVideos(
     const role = String(r['role'] ?? '')
     if (!username || !role) continue
     if (!staffByVid.has(vid)) staffByVid.set(vid, [])
-    // Deduplicate
     const list = staffByVid.get(vid)!
     if (!list.some((e) => e.username === username && e.role === role)) {
       list.push({ username, role })
     }
   }
 
-  // Build video payloads
   const videoPayloads: Array<Record<string, unknown>> = []
   const tagSet = new Set<string>()
   const roleSet = new Set<string>()
@@ -1061,7 +1027,6 @@ async function migrateEventsAndVideos(
     join(oobDir, 'migrate-events.json'),
     JSON.stringify(eventPayloads, null, 2),
   )
-  // For videos, to keep file size manageable, write a summary + full file
   writeFileSync(
     join(oobDir, 'migrate-videos.json'),
     JSON.stringify(videoPayloads, null, 2),
@@ -1125,7 +1090,6 @@ async function migrateEventsAndVideos(
       createdRoles++
     }
   }
-  // Build lookups
   const tagIdByNorm = new Map<string, string>()
   if (tagSet.size > 0) {
     const rows = await db
@@ -1211,7 +1175,6 @@ async function migrateEventsAndVideos(
       createdEvents++
     } else {
       eventIdByKey.set(ev.key, existing.id)
-      // Update if needed
       const changes = {
         title: ev.title,
         description: ev.description,
@@ -1271,7 +1234,6 @@ async function migrateEventsAndVideos(
     }
     generatedSlugs.add(slug)
 
-    // Skip videos where slug is still duplicate in DB (we will update instead)
     const existingRows = await db
       .select()
       .from(videos)
@@ -1279,7 +1241,7 @@ async function migrateEventsAndVideos(
       .limit(1)
     const existing = existingRows.at(0)
 
-    // Event linking: use heuristic result (may be null to clear previous over-links)
+    // May be null, which clears event links left over from earlier runs.
     const inferredEventKey = vp['eventKey'] as string | null
     const inferredEventId = inferredEventKey
       ? (eventIdByKey.get(inferredEventKey) ?? null)
@@ -1344,11 +1306,9 @@ async function migrateEventsAndVideos(
         staffLinks += desiredStaff.length
       }
     } else {
-      // Update
       const existingPublishedAt = existing.publishedAt
       const desiredPublishedAt =
         (vp['publishedAt'] as Date | null) ?? existingPublishedAt
-      // Check if base fields differ
       const before = existing as unknown as Record<string, unknown>
       const candidate: Record<string, unknown> = {
         ...desiredBase,
@@ -1375,7 +1335,6 @@ async function migrateEventsAndVideos(
         updatedVideos++
       }
 
-      // Sync tags
       const currentTagIds = (
         await db
           .select({ tagId: videoTags.tagId })
@@ -1415,7 +1374,6 @@ async function migrateEventsAndVideos(
             .values(desiredStaff.map((e) => ({ videoId: existing.id, ...e })))
         }
       }
-      // Count links for summary (use desired)
       tagLinks += desiredTagIds.length
       staffLinks += desiredStaff.length
     }

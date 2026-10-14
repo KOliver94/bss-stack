@@ -75,7 +75,6 @@ export async function getUpcomingLive(
   }
 }
 
-/** The live stream currently on air, if any. */
 export async function getActiveLive(
   executor: Executor,
   options: { now: Date },

@@ -136,7 +136,6 @@ export async function getAuditPage(
   }
 }
 
-/** Available action and entity type values for the filters. */
 export async function getAuditFilterValues(
   executor: Executor,
 ): Promise<{ actions: string[]; entityTypes: string[] }> {

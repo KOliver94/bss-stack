@@ -62,7 +62,6 @@ export interface RunDueJobsOptions {
   execute?: (job: JobDefinition) => Promise<JobRunRecord>
 }
 
-/** The startup and due interval jobs that must run now. */
 export function dueJobs(registry: JobRegistry, now: Date): JobDefinition[] {
   return registry.list().filter((job) => {
     if (job.intervalMs === 'startup') {

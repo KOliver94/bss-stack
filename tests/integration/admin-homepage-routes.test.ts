@@ -139,7 +139,6 @@ describe.skipIf(!hasTestDatabase)('BSS-031: kiemelés', () => {
       'Csak publikált',
     )
 
-    // Érvényes kiemelés.
     const ok = await handleAdminHighlightRoute(
       jsonRequest(ctx.leadershipToken, '/api/admin/highlight', {
         videoId: publishedId,
@@ -150,7 +149,6 @@ describe.skipIf(!hasTestDatabase)('BSS-031: kiemelés', () => {
     const settings = await ctx.db.select().from(siteSettings)
     expect(settings.at(0)?.highlightedVideoId).toBe(publishedId)
 
-    // Eltávolítás.
     const removed = await handleAdminHighlightRoute(
       jsonRequest(ctx.leadershipToken, '/api/admin/highlight', {
         videoId: null,
@@ -183,7 +181,6 @@ describe.skipIf(!hasTestDatabase)('BSS-031: live', () => {
     expect(badBody.status).toBe(400)
     expect(badBody.payload['error']).toBe('validation')
 
-    // Érvényes oEmbed válasszal menthető.
     const okDeps = { ...deps(ctx), clock, fetchImpl: oembedFetch(true) }
     const created = await handleAdminLiveRoutes(
       jsonRequest(ctx.leadershipToken, '/api/admin/live', {
@@ -198,7 +195,6 @@ describe.skipIf(!hasTestDatabase)('BSS-031: live', () => {
     expect(createdBody.status).toBe(200)
     const liveId = String(createdBody.payload['id'])
 
-    // Szerkesztés: videó és kezdési idő.
     const updated = await handleAdminLiveRoutes(
       jsonRequest(ctx.leadershipToken, `/api/admin/live/${liveId}/update`, {
         youtubeUrl: 'https://youtu.be/xyz98765',
@@ -218,7 +214,6 @@ describe.skipIf(!hasTestDatabase)('BSS-031: live', () => {
       '2026-09-01T09:00:00.000Z',
     )
 
-    // Indítás most → aktív.
     const started = await handleAdminLiveRoutes(
       jsonRequest(
         ctx.leadershipToken,
@@ -233,7 +228,6 @@ describe.skipIf(!hasTestDatabase)('BSS-031: live', () => {
     expect(startBody.status).toBe(200)
     expect(startBody.payload['activated']).toBe(true)
 
-    // Lezárás most → ended.
     const ended = await handleAdminLiveRoutes(
       jsonRequest(ctx.leadershipToken, `/api/admin/live/${liveId}/end_now`, {}),
       liveId,
@@ -282,7 +276,6 @@ describe.skipIf(!hasTestDatabase)('BSS-031: Rólunk-videók', () => {
     )
     expect(invalid.status).toBe(400)
 
-    // Érvényes lista sorrenddel.
     const ok = await handleAdminAboutRoute(
       jsonRequest(ctx.leadershipToken, '/api/admin/about', {
         orderedVideoIds: [inserted[1].id, inserted[0].id],

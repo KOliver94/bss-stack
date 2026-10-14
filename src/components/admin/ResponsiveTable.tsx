@@ -26,7 +26,6 @@ export function ResponsiveTable<TRow>({
 
   return (
     <>
-      {/* Desktop table */}
       <div className="hidden md:block">
         <table className="w-full text-left text-sm">
           <thead>
@@ -54,7 +53,6 @@ export function ResponsiveTable<TRow>({
           </tbody>
         </table>
       </div>
-      {/* Mobile card view */}
       <div className="flex flex-col gap-3 md:hidden">
         {rows.map((row, index) => (
           <div

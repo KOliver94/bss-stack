@@ -139,7 +139,6 @@ export async function handleAdminLiveRoutes(
     const database = await databaseOf(deps)
 
     if (action === undefined) {
-      // Create a new schedule.
       const input = await readLiveInput(request, deps)
       const row = await createLiveSchedule(database, liveDeps, input)
       return jsonResponse(200, { ok: true, id: row.id })

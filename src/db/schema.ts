@@ -187,7 +187,7 @@ export const events = pgTable(
     title: varchar({ length: 200 }).notNull(),
     description: varchar({ length: 10_000 }),
     thumbnailUrl: varchar('thumbnail_url', { length: 2048 }),
-
+    // A draft only requires a title; the start date is
     // a publication requirement (validated on the application side).
     startDate: date('start_date'),
     endDate: date('end_date'),

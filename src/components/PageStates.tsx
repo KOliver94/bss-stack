@@ -75,8 +75,6 @@ export function ForbiddenContent() {
   )
 }
 
-/* --- Loading placeholders ------------------------------------------------- */
-
 /** Placeholder for a line of text; the caller supplies the height. */
 export function SkeletonLine({ className = '' }: { className?: string }) {
   return <span className={`skeleton block rounded ${className}`} />

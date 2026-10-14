@@ -420,7 +420,7 @@ describe.skipIf(!hasTestDatabase)('tagfrissítő webhook műveletek', () => {
       members: [member({ sub: '43', fullName: 'Nagy Éva' })],
     })
     // Replace retires everything absent from the payload — including the three
-    // admin fixture profiles. That is the point of the mode.
+    // admin fixture profiles.
     expect(replaced.payload['result']).toMatchObject({
       mode: 'replace',
       archived: 4,

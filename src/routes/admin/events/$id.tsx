@@ -129,6 +129,7 @@ function EventEditor({
     return () => window.removeEventListener('beforeunload', handler)
   }, [isDirty])
 
+  // The server rejects an invalid thumbnail host even in drafts,
   // so we surface it here while editing.
   const thumbnailWarning = mediaUrlWarning(
     'Thumbnail URL',

@@ -77,7 +77,6 @@ describe.skipIf(!hasTestDatabase)(
 
       expect(paths).toContain('/videos/publikus-video')
       expect(paths).toContain('/events/teszt-esemeny')
-      // Statikus útvonalak
       expect(paths).toContain('/')
       expect(paths).toContain('/videos')
       expect(paths).toContain('/events')

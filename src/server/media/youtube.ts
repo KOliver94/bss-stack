@@ -13,7 +13,6 @@ export interface YoutubeCheckResult {
   problems: string[]
 }
 
-/** Build an embed URL from the normalized ID (for display, nocookie). */
 export function buildYoutubeNocookieEmbedUrl(videoId: string): string {
   return `https://www.youtube-nocookie.com/embed/${videoId}`
 }

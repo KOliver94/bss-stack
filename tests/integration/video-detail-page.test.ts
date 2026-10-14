@@ -236,7 +236,6 @@ describe.skipIf(!hasTestDatabase)(
         .where(eq(videos.id, video.id))
       expect(afterRows.at(0)?.viewCount).toBe(1)
 
-      // A view_sessions sor rögzítésre került.
       const sessions = await db.select().from(viewSessions)
       expect(sessions).toHaveLength(1)
     })

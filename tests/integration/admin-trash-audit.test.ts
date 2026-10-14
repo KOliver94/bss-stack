@@ -52,9 +52,7 @@ async function createAndTrash(
 describe.skipIf(!hasTestDatabase)('BSS-033: lomtár', () => {
   it('minden tag látja a lomtárat törlővel és hátralévő idővel; visszaállítás vezetőségi', async () => {
     const ctx = await setupAdminApiTest('bss trashtag')
-    // A tag lomtárba helyez (saját nevében).
     await createAndTrash(ctx, 'Lomtári egyes')
-    // A vezetőség is lomtárba helyez egy másikat.
     await createAndTrash(ctx, 'Lomtári kettes')
 
     // A lomtárlista-modul nem kér viewer-t: minden tag számára látható.
@@ -92,7 +90,6 @@ describe.skipIf(!hasTestDatabase)('BSS-033: lomtár', () => {
       .from(videos)
       .where(eq(videos.id, target.id))
     expect(rows.at(0)?.status).toBe('archived')
-    // A kapcsolatok megmaradnak — a restore után a rekord létezik és archivált.
   })
 
   it('remainingTrashDays a FakeClock ideje szerint számol; 30 nap után lejár', async () => {
@@ -135,7 +132,6 @@ describe.skipIf(!hasTestDatabase)('BSS-033: lomtár', () => {
     )
     expect(staleRestore.status).toBe(409)
 
-    // Aktuális verzióval sikeres.
     const okRestore = await handleAdminVideoRoutes(
       jsonRequest(ctx.leadershipToken, `/api/admin/videos/${videoId}/restore`, {
         version: 3,
@@ -203,7 +199,6 @@ describe.skipIf(!hasTestDatabase)('BSS-033: auditnapló', () => {
     })
     expect(byFutureDate.total).toBe(0)
 
-    // parseAuditFilters ismeretlen értékeket eldob.
     expect(parseAuditFilters({ actor: ' x ', from: 'bad-date' })).toEqual({
       actor: 'x',
     })

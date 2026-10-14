@@ -272,7 +272,6 @@ describe.skipIf(!hasTestDatabase)(
       })
       expect(byDateFrom.items.map((item) => item.slug)).toEqual(['ev-lista-b'])
 
-      // parseAdminEventFilters: ismeretlen értékek eldobása
       expect(
         parseAdminEventFilters({ q: ' x ', status: 'nope', from: 'bad-date' }),
       ).toEqual({ q: 'x' })

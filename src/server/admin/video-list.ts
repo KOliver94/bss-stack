@@ -164,7 +164,6 @@ export interface AdminVideoFilterOptions {
   tags: Array<{ id: string; name: string }>
 }
 
-/** Filter dropdowns for the admin video list. */
 export async function getAdminVideoFilterOptions(
   executor: Executor,
 ): Promise<AdminVideoFilterOptions> {

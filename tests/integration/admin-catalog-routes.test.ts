@@ -228,7 +228,6 @@ describe.skipIf(!hasTestDatabase)('BSS-030: stábszerep műveletek', () => {
     const idA = String((await responseBody(createdA)).payload['id'])
     const idB = String((await responseBody(createdB)).payload['id'])
 
-    // Sorrendezés: B lesz az első.
     const reordered = await handleAdminStaffRoleRoutes(
       jsonRequest(ctx.leadershipToken, '/api/admin/staff-roles/reorder', {
         orderedRoleIds: [idB, idA],

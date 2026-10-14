@@ -214,7 +214,6 @@ describe.skipIf(!hasTestDatabase)('BSS-017: live ütemezés', () => {
       okMock.restore()
     }
 
-    // Hibás aktiválás:
     const failMock = installFetchMock(oembedFailureRoutes())
     try {
       const failed = await startLiveNow(
@@ -236,7 +235,6 @@ describe.skipIf(!hasTestDatabase)('BSS-017: live ütemezés', () => {
       failMock.restore()
     }
 
-    // Sikeres aktiválás:
     const okMock2 = installFetchMock(okOembedRoutes)
     try {
       const started = await startLiveNow(

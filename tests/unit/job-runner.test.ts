@@ -76,12 +76,10 @@ describe('BSS-010: ütemezési logika (FakeClock-kal vezérelt)', () => {
       registry.setLastFinishedAt(job.name, clock.now())
     }
 
-    // perc múlva semmi sem esedékes
     clock.advanceMinutes(1)
     expect(dueJobs(registry, clock.now())).toHaveLength(0)
     expect(dueJobs(registry, clock.now()).length).toBe(0)
 
-    // óra múlva csak az óránkénti
     clock.advanceMinutes(60)
     const dueAfterHour = dueJobs(registry, clock.now())
     expect(dueAfterHour.map((job) => job.name)).toEqual(['hourly-job'])

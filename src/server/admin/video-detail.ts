@@ -163,7 +163,6 @@ export async function getAdminVideoEditorOptions(
   }
 }
 
-/** Resolve tag and staff names for displaying in the editor. */
 export async function resolveAdminVideoNames(
   executor: Executor,
   ids: { tagIds: string[]; roleIds: string[]; memberSubs: string[] },

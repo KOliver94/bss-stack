@@ -13,7 +13,6 @@ import type { Clock } from '#/lib/clock.ts'
 export interface ViewerState {
   /** The viewer's authorization level and identifiers (meaningful even when anonymous). */
   viewer: Viewer
-  /** Logged in (not an anonymous session). */
   loggedIn: boolean
 }
 

@@ -361,8 +361,6 @@ export async function transitionLiveStates(
   return { activated }
 }
 
-/** Admin history: every live, most recent first (never in the public archive). */
-
 export function createLiveTransitionJob(deps: {
   clock?: Clock
   db: () => Promise<Executor>

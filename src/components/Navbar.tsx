@@ -70,7 +70,6 @@ export default function Navbar() {
           )}
         </Link>
 
-        {/* desktop links */}
         <nav style={{ flex: 1 }} className="hidden lg:block">
           <div className="inline-flex items-center gap-6 *:font-bold">
             {NAV_LINKS.map((item) => (
@@ -79,7 +78,6 @@ export default function Navbar() {
           </div>
         </nav>
 
-        {/* right: utilities */}
         <div className="ml-auto inline-flex items-center gap-2 sm:gap-4">
           <div>
             <ThemeToggle />
@@ -117,7 +115,6 @@ export default function Navbar() {
         </div>
       </nav>
 
-      {/* mobile menu */}
       {menuOpen && (
         <nav className="border-t border-(--nav-border-b) bg-(--nav-bg) lg:hidden">
           <div className="site-width flex flex-col gap-1 py-3">

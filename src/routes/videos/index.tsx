@@ -67,8 +67,6 @@ export const Route = createFileRoute('/videos/')({
       event: pickString('event'),
       from: pickString('from'),
       to: pickString('to'),
-      staffMember: pickString('staffMember'),
-      staffRole: pickString('staffRole'),
       ...(tags !== undefined && tags.length > 0 ? { tags } : {}),
     }
   },
@@ -213,16 +211,6 @@ function VideoFilterBar({
       value: item.slug,
       label: item.title,
     })) ?? []
-  const staffMemberOptions =
-    options?.staffMembers.map((item) => ({
-      value: item.sub,
-      label: item.fullName,
-    })) ?? []
-  const staffRoleOptions =
-    options?.staffRoles.map((item) => ({
-      value: item.id,
-      label: item.name,
-    })) ?? []
 
   return (
     <form onSubmit={submit} className="mb-6 flex flex-wrap items-end gap-3">
@@ -245,31 +233,6 @@ function VideoFilterBar({
           emptyOptionLabel="Mind"
           searchPlaceholder="Esemény keresése…"
           searchThreshold={0}
-          labelClassName={FILTER_LABEL_CLASS}
-        />
-      </div>
-      <div className="w-56">
-        <AdminSearchSelect
-          label="Stábtag"
-          value={parsed.staffMemberSub}
-          options={staffMemberOptions}
-          onChange={(value) => onUpdate({ staffMember: value || undefined })}
-          placeholder="Mind"
-          emptyOptionLabel="Mind"
-          searchPlaceholder="Stábtag keresése…"
-          searchThreshold={0}
-          labelClassName={FILTER_LABEL_CLASS}
-        />
-      </div>
-      <div className="w-48">
-        <AdminSearchSelect
-          label="Stábszerep"
-          value={parsed.staffRoleId}
-          options={staffRoleOptions}
-          onChange={(value) => onUpdate({ staffRole: value || undefined })}
-          placeholder="Mind"
-          emptyOptionLabel="Mind"
-          searchPlaceholder="Stábszerep keresése…"
           labelClassName={FILTER_LABEL_CLASS}
         />
       </div>

@@ -1,13 +1,6 @@
 import { asc, eq } from 'drizzle-orm'
 import type { Viewer } from '#/server/auth/viewer.ts'
-import {
-  events,
-  staffRoles,
-  tags,
-  videos,
-  videoStaff,
-  memberCache,
-} from '#/db/schema.ts'
+import { events, tags } from '#/db/schema.ts'
 import type { Executor } from '#/server/shared/db-executor.ts'
 import { searchVideosDetailed } from '#/server/search/service.ts'
 import type { VideoSort } from '#/server/search/service.ts'
@@ -36,8 +29,6 @@ export interface VideoListRawSearch {
   event?: string
   from?: string
   to?: string
-  staffMember?: string
-  staffRole?: string
 }
 
 export interface ParsedVideoListQuery {
@@ -49,8 +40,6 @@ export interface ParsedVideoListQuery {
   eventSlug: string
   recordedFrom: string
   recordedTo: string
-  staffMemberSub: string
-  staffRoleId: string
 }
 
 export function parseVideoListSearch(
@@ -83,14 +72,6 @@ export function parseVideoListSearch(
     eventSlug: typeof raw.event === 'string' ? raw.event : '',
     recordedFrom: isIsoDate(raw.from) ? raw.from : '',
     recordedTo: isIsoDate(raw.to) ? raw.to : '',
-    staffMemberSub:
-      typeof raw.staffMember === 'string' && raw.staffMember !== ''
-        ? raw.staffMember
-        : '',
-    staffRoleId:
-      typeof raw.staffRole === 'string' && raw.staffRole !== ''
-        ? raw.staffRole
-        : '',
   }
 }
 
@@ -149,9 +130,6 @@ export async function getVideoListPage(
     eventId,
     recordedFrom: query.recordedFrom === '' ? undefined : query.recordedFrom,
     recordedTo: query.recordedTo === '' ? undefined : query.recordedTo,
-    staffMemberSub:
-      query.staffMemberSub === '' ? undefined : query.staffMemberSub,
-    staffRoleId: query.staffRoleId === '' ? undefined : query.staffRoleId,
     sort: query.sort,
     limit: query.perPage,
     offset: (query.page - 1) * query.perPage,
@@ -177,42 +155,22 @@ export async function getVideoListPage(
 export interface VideoFilterOptions {
   tags: Array<{ name: string }>
   events: Array<{ slug: string; title: string }>
-  staffRoles: Array<{ id: string; name: string }>
-  /** Only members who appear on the staff list of at least one published video. */
-  staffMembers: Array<{ sub: string; fullName: string }>
 }
 
 /** Filter lists for the video page (public data). */
 export async function getVideoFilterOptions(
   executor: Executor,
 ): Promise<VideoFilterOptions> {
-  const [tagRows, eventRows, roleRows, memberRows] = await Promise.all([
+  const [tagRows, eventRows] = await Promise.all([
     executor.select({ name: tags.name }).from(tags).orderBy(asc(tags.name)),
     executor
       .select({ slug: events.slug, title: events.title })
       .from(events)
       .where(eq(events.status, 'published'))
       .orderBy(asc(events.title)),
-    executor
-      .select({ id: staffRoles.id, name: staffRoles.name })
-      .from(staffRoles)
-      .orderBy(asc(staffRoles.displayOrder), asc(staffRoles.name)),
-    executor
-      .selectDistinct({
-        sub: memberCache.sub,
-        fullName: memberCache.fullName,
-      })
-      .from(videoStaff)
-      .innerJoin(videos, eq(videos.id, videoStaff.videoId))
-      .innerJoin(memberCache, eq(memberCache.sub, videoStaff.memberSub))
-      .where(eq(videos.status, 'published'))
-      .orderBy(asc(memberCache.fullName))
-      .limit(1000),
   ])
   return {
     tags: tagRows,
     events: eventRows,
-    staffRoles: roleRows,
-    staffMembers: memberRows,
   }
 }

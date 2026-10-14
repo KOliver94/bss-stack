@@ -41,8 +41,6 @@ const loadVideoHits = createServerFn({ method: 'GET' })
       eventSlug: '',
       recordedFrom: '',
       recordedTo: '',
-      staffMemberSub: '',
-      staffRoleId: '',
     })
   })
 

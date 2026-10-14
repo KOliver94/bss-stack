@@ -7,14 +7,7 @@ import {
 } from '#/server/pages/video-list.ts'
 import { anonymousViewer } from '#/server/auth/viewer.ts'
 import type { Viewer } from '#/server/auth/viewer.ts'
-import {
-  events,
-  memberCache,
-  tags,
-  videos,
-  videoStaff,
-  staffRoles,
-} from '#/db/schema.ts'
+import { events, tags, videos } from '#/db/schema.ts'
 import { createMigratedTestDatabase } from '../helpers/test-db.ts'
 
 const databases: Array<{ drop: () => Promise<void> }> = []
@@ -195,7 +188,7 @@ describe.skipIf(!hasTestDatabase)('BSS-020: videólista lekérdezés', () => {
     expect(result.items.at(0)?.id).toBe(both.id)
   })
 
-  it('szűrőlisták: publikált események, szerepek, stábtagok', async () => {
+  it('szűrőlisták: publikált események', async () => {
     const db = await setupDb()
     await db.insert(events).values({
       slug: 'esemeny-a',
@@ -203,30 +196,8 @@ describe.skipIf(!hasTestDatabase)('BSS-020: videólista lekérdezés', () => {
       startDate: '2026-05-01',
       status: 'published',
     })
-    const roleRows = await db
-      .insert(staffRoles)
-      .values([{ name: 'Rendező', normalizedName: 'rendezo', displayOrder: 1 }])
-      .returning()
-    const role = roleRows.at(0)
-    if (role === undefined) throw new Error('seed failed')
-    const video = await seedVideo(db, {})
-    await db.insert(memberCache).values({
-      sub: 'staff-sub',
-      username: 'stábtag',
-      fullName: 'Stáb Tag',
-      membershipStatus: 'MEMBER',
-    })
-    await db.insert(videoStaff).values({
-      videoId: video.id,
-      roleId: role.id,
-      memberSub: 'staff-sub',
-    })
 
     const options = await getVideoFilterOptions(db)
     expect(options.events).toEqual([{ slug: 'esemeny-a', title: 'Esemény A' }])
-    expect(options.staffMembers).toEqual([
-      { sub: 'staff-sub', fullName: 'Stáb Tag' },
-    ])
-    expect(options.staffRoles).toMatchObject([{ id: role.id, name: 'Rendező' }])
   })
 })

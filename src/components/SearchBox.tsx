@@ -85,7 +85,7 @@ export default function SearchBox() {
     })),
     ...results.members.map((member) => ({
       kind: 'member' as const,
-      label: `${member.fullName} (Tag)`,
+      label: `${member.fullName}`,
       href: `/members/${memberSlug(member)}`,
     })),
     ...results.tags.map((tag) => ({

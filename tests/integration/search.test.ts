@@ -167,7 +167,7 @@ describe.skipIf(!hasTestDatabase)('BSS-018: globális keresés', () => {
     expect(result.videos).toEqual([])
   })
 
-  it('címkét és tagot is talál; hibás szinkronú profil nem jelenik meg', async () => {
+  it('címkét és tagot is talál; az archivált profil archiváltként jelenik meg', async () => {
     const db = await setupDb()
     await db.insert(tags).values({ name: 'Főtábor', normalizedName: 'fotabor' })
 
@@ -180,9 +180,11 @@ describe.skipIf(!hasTestDatabase)('BSS-018: globális keresés', () => {
     const memberResult = await search(db, anonViewer, 'Béla')
     expect(memberResult.members).toHaveLength(1)
     expect(memberResult.members[0]?.item.fullName).toBe('Teszt Béla')
+    expect(memberResult.members[0]?.item.archived).toBe(false)
 
-    const deletedMember = await search(db, anonViewer, 'Törölt Profil')
-    expect(deletedMember.members).toHaveLength(0)
+    const archivedMember = await search(db, anonViewer, 'Törölt Profil')
+    expect(archivedMember.members).toHaveLength(1)
+    expect(archivedMember.members[0]?.item.archived).toBe(true)
   })
 
   it('tiltott videó metaadata és találatszáma sem szivárog jogosulatlan nézőnek', async () => {

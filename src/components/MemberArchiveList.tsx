@@ -61,7 +61,7 @@ export function MemberArchiveList({
                 groupByJoinedYear(listQuery.data.items).map((group) => (
                   <section key={group.year ?? 'unknown'} className="mt-8">
                     <h2 className="text-center text-2xl font-bold text-(--bss-text)">
-                      {group.year ?? 'Ismeretlen belépési év'}
+                      {group.year ?? 'Ismeretlen csatlakozási év'}
                     </h2>
                     <MemberCardGrid members={group.members} />
                   </section>

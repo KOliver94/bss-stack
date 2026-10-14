@@ -90,16 +90,48 @@ function MoonIcon() {
   )
 }
 
+function MonitorIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="var(--nav-icon)"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <rect x="2" y="3" width="20" height="14" rx="2" />
+      <path d="M8 21h8" />
+      <path d="M12 17v4" />
+    </svg>
+  )
+}
+
+const NEXT_MODE: Record<ThemeMode, ThemeMode> = {
+  light: 'dark',
+  dark: 'auto',
+  auto: 'light',
+}
+
+const MODE_LABELS: Record<ThemeMode, string> = {
+  light: 'Világos téma aktív. Kattints a sötét témára váltáshoz.',
+  dark: 'Sötét téma aktív. Kattints a rendszer témájára váltáshoz.',
+  auto: 'Rendszer téma aktív. Kattints a világos témára váltáshoz.',
+}
+
 export default function ThemeToggle() {
-  // SSR always renders light; the real mode is picked up after hydration so
-  // that server and client output match.
+  // SSR always renders the system default; the real mode is picked up after
+  // hydration so that server and client output match.
   const [mode, setMode] = useState<ThemeMode>('auto')
-  const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>('light')
 
   useEffect(() => {
     const stored = readStoredMode()
     setMode(stored)
-    setResolvedTheme(applyThemeMode(stored))
+    applyThemeMode(stored)
   }, [])
 
   useEffect(() => {
@@ -108,7 +140,7 @@ export default function ThemeToggle() {
     }
 
     const media = window.matchMedia('(prefers-color-scheme: dark)')
-    const onChange = () => setResolvedTheme(applyThemeMode('auto'))
+    const onChange = () => applyThemeMode('auto')
 
     media.addEventListener('change', onChange)
     return () => {
@@ -117,19 +149,15 @@ export default function ThemeToggle() {
   }, [mode])
 
   function toggleMode() {
-    // From auto mode we switch to the opposite of the currently visible theme,
-    // so that every click produces a noticeable change.
-    const nextMode: ThemeMode = resolvedTheme === 'dark' ? 'light' : 'dark'
+    // Cycles light → dark → system default → light.
+    const nextMode = NEXT_MODE[mode]
 
     setMode(nextMode)
-    setResolvedTheme(applyThemeMode(nextMode))
+    applyThemeMode(nextMode)
     window.localStorage.setItem('theme', nextMode)
   }
 
-  const label =
-    resolvedTheme === 'dark'
-      ? 'Sötét téma aktív. Kattints a világos témára váltáshoz.'
-      : 'Világos téma aktív. Kattints a sötét témára váltáshoz.'
+  const label = MODE_LABELS[mode]
 
   return (
     <button
@@ -139,7 +167,13 @@ export default function ThemeToggle() {
       title={label}
       className="icon-btn gap-2 px-3 py-1.5 text-sm font-semibold"
     >
-      {resolvedTheme === 'dark' ? <MoonIcon /> : <SunIcon />}
+      {mode === 'auto' ? (
+        <MonitorIcon />
+      ) : mode === 'dark' ? (
+        <MoonIcon />
+      ) : (
+        <SunIcon />
+      )}
     </button>
   )
 }

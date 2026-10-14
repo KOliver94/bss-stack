@@ -58,8 +58,8 @@ export default function Footer() {
   return (
     <footer className="flex flex-col items-center gap-4 bg-(--darker-blue) py-[1dvh] text-white">
       <div className="text-lg">Kapcsolat</div>
-      <a href="mailto:bss@sch.bme.hu" className="text-(--orange)">
-        bss@sch.bme.hu
+      <a href="mailto:bss@sch.bme.hu" className="text-(--orange) font-semibold">
+        info@bsstudio.hu
       </a>
       <div className="mx-auto flex gap-4">
         {socialLinks.map((social) => (

@@ -1,7 +1,7 @@
 import { createFileRoute, Link, notFound } from '@tanstack/react-router'
 import { createServerFn } from '@tanstack/react-start'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   getAdminVideoDetail,
   getAdminVideoEditorOptions,
@@ -162,6 +162,8 @@ function VideoEditor({
 }) {
   const [form, setForm] = useState<EditorForm>(() => formFromDetail(detail))
   const [version, setVersion] = useState(detail.version)
+  // Sequential saves (see saveAll) need the latest version before re-render.
+  const versionRef = useRef(detail.version)
   const [tagIds, setTagIds] = useState<string[]>(detail.tagIds)
   const [staff, setStaff] = useState<
     Array<{ roleId: string; memberSub: string }>
@@ -187,11 +189,11 @@ function VideoEditor({
   const [loginUrl, setLoginUrl] = useState<string | null>(null)
   const [conflictMessage, setConflictMessage] = useState<string | null>(null)
 
-  const isDirty =
-    JSON.stringify(form) !== savedFormSnapshot ||
-    JSON.stringify(tagIds) !== savedTagSnapshot ||
-    JSON.stringify(staff) !== savedStaffSnapshot ||
-    JSON.stringify(relatedIds) !== savedRelatedSnapshot
+  const formDirty = JSON.stringify(form) !== savedFormSnapshot
+  const tagsDirty = JSON.stringify(tagIds) !== savedTagSnapshot
+  const staffDirty = JSON.stringify(staff) !== savedStaffSnapshot
+  const relatedDirty = JSON.stringify(relatedIds) !== savedRelatedSnapshot
+  const isDirty = formDirty || tagsDirty || staffDirty || relatedDirty
 
   useEffect(() => {
     if (!isDirty) return
@@ -237,10 +239,14 @@ function VideoEditor({
       version?: number
       warnings?: string[]
       slug?: string
-    }>(`/api/admin/videos/${detail.id}/${action}`, { version, ...body })
+    }>(`/api/admin/videos/${detail.id}/${action}`, {
+      version: versionRef.current,
+      ...body,
+    })
     setBusy(false)
     if (result.ok) {
       if (typeof result.data.version === 'number') {
+        versionRef.current = result.data.version
         setVersion(result.data.version)
       }
       const savedSlug = result.data.slug ?? form.slug
@@ -283,7 +289,9 @@ function VideoEditor({
     return false
   }
 
-  async function saveDraft(): Promise<boolean> {
+  async function saveDraft(
+    successMessage = 'Piszkozat elmentve.',
+  ): Promise<boolean> {
     return call(
       'update',
       {
@@ -304,8 +312,41 @@ function VideoEditor({
             ? null
             : new Date(`${form.publishedAtLocal}:00+02:00`).toISOString(),
       },
-      'Piszkozat elmentve.',
+      successMessage,
     )
+  }
+
+  /**
+   * The bottom save button saves every section with unsaved changes, asking
+   * first when more than one section is affected.
+   */
+  async function saveAll() {
+    // Basic fields go last: their save may return warnings, which should be
+    // the message left on screen.
+    const pending = [
+      { dirty: tagsDirty, label: 'címkék', save: saveTags },
+      { dirty: staffDirty, label: 'stáblista', save: saveStaff },
+      { dirty: relatedDirty, label: 'kapcsolódó videók', save: saveRelated },
+      { dirty: formDirty, label: 'alapadatok', save: saveDraft },
+    ].filter((item) => item.dirty)
+    if (pending.length === 0) return
+    if (pending.length > 1) {
+      const labels = pending.map((item) => item.label).join(', ')
+      if (
+        !window.confirm(
+          `Több helyen is van mentetlen változás (${labels}). Mindet elmented?`,
+        )
+      ) {
+        return
+      }
+    }
+    for (const [index, item] of pending.entries()) {
+      const isLast = index === pending.length - 1
+      const saved = await item.save(
+        isLast && pending.length > 1 ? 'Minden változás elmentve.' : undefined,
+      )
+      if (!saved) return
+    }
   }
 
   async function publish() {
@@ -332,20 +373,16 @@ function VideoEditor({
     await call('restore', {}, 'Videó visszaállítva archivált állapotba.')
   }
 
-  async function saveTags() {
-    await call('tags', { tagIds }, 'Címkék elmentve.')
+  async function saveTags(successMessage = 'Címkék elmentve.') {
+    return call('tags', { tagIds }, successMessage)
   }
 
-  async function saveStaff() {
-    await call('staff', { assignments: staff }, 'Stáblista elmentve.')
+  async function saveStaff(successMessage = 'Stáblista elmentve.') {
+    return call('staff', { assignments: staff }, successMessage)
   }
 
-  async function saveRelated() {
-    await call(
-      'related',
-      { relatedVideoIds: relatedIds },
-      'Kapcsolódó videók elmentve.',
-    )
+  async function saveRelated(successMessage = 'Kapcsolódó videók elmentve.') {
+    return call('related', { relatedVideoIds: relatedIds }, successMessage)
   }
 
   const statusLabel = videoStatusLabel(detail.status)
@@ -587,7 +624,7 @@ function VideoEditor({
 
       <div className="sticky bottom-0 flex flex-wrap items-center gap-3 border-t border-(--nav-border-b) bg-(--bg) py-3">
         <AdminPrimaryButton
-          onClick={() => void saveDraft()}
+          onClick={() => void saveAll()}
           disabled={busy || !isDirty}
         >
           {detail.status === 'published' ? 'Mentés' : 'Piszkozat mentése'}

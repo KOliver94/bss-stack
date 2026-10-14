@@ -70,6 +70,10 @@ export async function handleAdminVideoRoutes(
       const body = await readJsonBody(request)
       const row = await createVideoDraft(db, domainDeps, {
         title: typeof body['title'] === 'string' ? body['title'] : '',
+        // New videos are almost always 16:9 HD with both qualities encoded.
+        encodingGroup: '16a9_HD',
+        hasHq: true,
+        hasLq: true,
       })
       return jsonResponse(200, { ok: true, id: row.id, slug: row.slug })
     }

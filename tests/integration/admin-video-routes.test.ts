@@ -179,7 +179,7 @@ describe.skipIf(!hasTestDatabase)('BSS-028: piszkozat és publikálás', () => {
       return String((await responseBody(created)).payload['id'])
     }
 
-    // 1. hiányzó média → 400
+    // 1. hiányzó alapfájlnév → 400
     const missing = await createVideo()
     const missingResponse = await handleAdminVideoRoutes(
       jsonRequest(ctx.leadershipToken, `/api/admin/videos/${missing}/publish`, {
@@ -191,7 +191,10 @@ describe.skipIf(!hasTestDatabase)('BSS-028: piszkozat és publikálás', () => {
     )
     const missingBody = await responseBody(missingResponse)
     expect(missingBody.status).toBe(400)
-    expect(String(JSON.stringify(missingBody.payload))).toContain('Videóprofil')
+    const missingProblems = String(JSON.stringify(missingBody.payload))
+    expect(missingProblems).toContain('Alapfájlnév')
+    expect(missingProblems).not.toContain('Videóprofil')
+    expect(missingProblems).not.toContain('minőség')
 
     // 2. átirányító média → 400 (mockolt fetch)
     const redirected = await createVideo()

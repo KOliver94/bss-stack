@@ -52,6 +52,11 @@ const socialLinks = [
     href: 'https://www.instagram.com/budavari_schonherz_studio/',
     src: '/social/instagram.svg',
   },
+  {
+    name: 'TikTok',
+    href: 'https://www.tiktok.com/@bsstudio_',
+    src: '/social/tiktok.svg',
+  },
 ]
 
 export default function Footer() {

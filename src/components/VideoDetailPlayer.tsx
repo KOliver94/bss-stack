@@ -76,8 +76,8 @@ export default function VideoDetailPlayer({
   const [isQualityMenuOpen, setIsQualityMenuOpen] = useState(false)
 
   const qualityOptions = [
-    ...(hqUrl ? [{ value: 'hq' as const, label: 'HQ' }] : []),
-    ...(lqUrl ? [{ value: 'lq' as const, label: 'LQ' }] : []),
+    ...(hqUrl ? [{ value: 'hq' as const, label: '1080p' }] : []),
+    ...(lqUrl ? [{ value: 'lq' as const, label: '480p' }] : []),
   ]
   const activeVideoUrl =
     quality === 'hq'

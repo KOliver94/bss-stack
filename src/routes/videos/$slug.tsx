@@ -5,6 +5,8 @@ import {
   redirect,
 } from '@tanstack/react-router'
 import { createServerFn } from '@tanstack/react-start'
+import { useQuery } from '@tanstack/react-query'
+import { Pencil } from 'lucide-react'
 import { getRequest, getRequestUrl } from '@tanstack/react-start/server'
 import { resolveViewerStateFromRequest } from '#/server/pages/viewer.ts'
 import { getDefaultDb } from '#/server/auth/session-store.ts'
@@ -15,6 +17,7 @@ import { formatCalendarDateHu, formatDateHu } from '#/lib/format-date.ts'
 import Thumbnail from '#/components/Thumbnail.tsx'
 import { parseVideoStartTime } from '#/lib/video-time.ts'
 import { memberSlug } from '#/lib/member-slug.ts'
+import { fetchViewerState } from '#/server/pages/viewer-fn.ts'
 
 const loadVideoDetail = createServerFn({ method: 'GET' })
   .validator((slug: string) => slug)
@@ -70,6 +73,13 @@ export const Route = createFileRoute('/videos/$slug')({
 function VideoDetailPage() {
   const { detail, canonical } = Route.useLoaderData()
   const { t: startTime } = Route.useSearch()
+  const viewerQuery = useQuery({
+    queryKey: ['viewer'],
+    queryFn: fetchViewerState,
+    staleTime: 60_000,
+  })
+  const canEdit =
+    viewerQuery.data?.loggedIn === true && viewerQuery.data.canAccessAdmin
   const description = detail.description?.slice(0, 300) ?? detail.title
   return (
     <main className="flex-1">
@@ -139,6 +149,17 @@ function VideoDetailPage() {
               {detail.event.title}
             </Link>
           </p>
+        )}
+
+        {canEdit && (
+          <Link
+            to="/admin/videos/$id"
+            params={{ id: detail.id }}
+            className="my-4 inline-flex items-center gap-2 bg-(--orange) px-4 py-2 text-sm font-bold text-white hover:opacity-90"
+          >
+            <Pencil aria-hidden="true" className="h-4 w-4" />
+            Szerkesztés
+          </Link>
         )}
 
         {detail.description !== null && (

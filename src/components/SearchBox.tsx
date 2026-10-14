@@ -108,10 +108,28 @@ export default function SearchBox() {
     window.location.assign(hit.href)
   }
 
+  function openSearchPage() {
+    setOpen(false)
+    void navigate({
+      to: '/search',
+      search: { q: query.trim(), tab: 'all' },
+    })
+  }
+
   function onKeyDown(event: React.KeyboardEvent) {
     if (event.key === 'Escape') {
       setOpen(false)
       setActiveIndex(-1)
+      return
+    }
+    if (event.key === 'Enter') {
+      event.preventDefault()
+      const hit = open && activeIndex >= 0 ? hits[activeIndex] : undefined
+      if (hit === undefined) {
+        openSearchPage()
+      } else {
+        openHit(hit)
+      }
       return
     }
     if (!open || hits.length === 0) {
@@ -123,13 +141,6 @@ export default function SearchBox() {
     } else if (event.key === 'ArrowUp') {
       event.preventDefault()
       setActiveIndex((index) => (index <= 0 ? hits.length - 1 : index - 1))
-    } else if (event.key === 'Enter') {
-      const hit = hits.at(activeIndex)
-      if (hit === undefined) {
-        return
-      }
-      event.preventDefault()
-      openHit(hit)
     }
   }
 
@@ -208,13 +219,7 @@ export default function SearchBox() {
           )}
           <button
             type="button"
-            onClick={() => {
-              setOpen(false)
-              void navigate({
-                to: '/search',
-                search: { q: query.trim(), tab: 'all' },
-              })
-            }}
+            onClick={openSearchPage}
             className="ctrl-btn w-full border-t border-t-(--nav-border-b) px-3 py-2 text-left text-sm font-bold text-(--orange)"
           >
             Teljes keresőoldal megnyitása

@@ -18,7 +18,7 @@ export async function setAboutVideos(
     clock?: Clock
   },
 ): Promise<void> {
-  if (!can.manageHomepageSettings(params.viewer)) {
+  if (!can.manageAboutVideos(params.viewer)) {
     throw new ForbiddenError('A Rólunk-videók kezelése vezetőségi jog.')
   }
   if (params.orderedVideoIds.length > ABOUT_VIDEO_LIMIT) {

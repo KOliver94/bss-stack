@@ -25,9 +25,9 @@ export interface LiveDeps {
   fetchImpl?: typeof fetch
 }
 
-function assertLeadership(viewer: Viewer): void {
-  if (!can.manageHomepageSettings(viewer)) {
-    throw new ForbiddenError('A live beállítások kezelése vezetőségi jog.')
+function assertCanManageLive(viewer: Viewer): void {
+  if (!can.manageLiveAndHighlight(viewer)) {
+    throw new ForbiddenError('A live beállítások kezelése tagsági jog.')
   }
 }
 
@@ -76,7 +76,7 @@ export async function createLiveSchedule(
   deps: LiveDeps,
   input: CreateLiveInput,
 ): Promise<typeof liveStreams.$inferSelect> {
-  assertLeadership(deps.viewer)
+  assertCanManageLive(deps.viewer)
   if (input.endsAt.getTime() <= input.startsAt.getTime()) {
     throw new Error('A befejezési időnek a kezdés után kell lennie.')
   }
@@ -142,7 +142,7 @@ export async function rescheduleLive(
   liveId: string,
   input: { startsAt: Date; endsAt: Date },
 ): Promise<typeof liveStreams.$inferSelect> {
-  assertLeadership(deps.viewer)
+  assertCanManageLive(deps.viewer)
   if (input.endsAt.getTime() <= input.startsAt.getTime()) {
     throw new Error('A befejezési időnek a kezdés után kell lennie.')
   }
@@ -190,7 +190,7 @@ export async function startLiveNow(
   deps: LiveDeps & { youtubeConfig?: { oEmbedEndpoint: string } },
   liveId: string,
 ): Promise<{ stream: typeof liveStreams.$inferSelect; activated: boolean }> {
-  assertLeadership(deps.viewer)
+  assertCanManageLive(deps.viewer)
 
   const current = await loadStream(executor, liveId)
   if (current === null) {
@@ -266,7 +266,7 @@ export async function endLiveNow(
   deps: LiveDeps,
   liveId: string,
 ): Promise<typeof liveStreams.$inferSelect> {
-  assertLeadership(deps.viewer)
+  assertCanManageLive(deps.viewer)
 
   const current = await loadStream(executor, liveId)
   if (current === null) {
@@ -311,7 +311,7 @@ export async function deleteScheduledLive(
   deps: LiveDeps,
   liveId: string,
 ): Promise<void> {
-  assertLeadership(deps.viewer)
+  assertCanManageLive(deps.viewer)
   const current = await loadStream(executor, liveId)
   if (current === null) {
     throw new Error('A live ütemezés nem található.')
@@ -432,6 +432,6 @@ export async function listLiveHistory(
   executor: Executor,
   viewer: Viewer,
 ): Promise<Array<typeof liveStreams.$inferSelect>> {
-  assertLeadership(viewer)
+  assertCanManageLive(viewer)
   return executor.select().from(liveStreams).orderBy(desc(liveStreams.startsAt))
 }

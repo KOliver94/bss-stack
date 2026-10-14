@@ -9,7 +9,7 @@ export interface SidebarItem {
 export const ADMIN_SIDEBAR_ITEMS: SidebarItem[] = [
   { to: '/admin/videos', label: 'Videók' },
   { to: '/admin/events', label: 'Események' },
-  { to: '/admin/homepage', label: 'Live és kiemelés', leadershipOnly: true },
+  { to: '/admin/homepage', label: 'Live és kiemelés' },
   { to: '/admin/catalog/tags', label: 'Címkekatalógus', leadershipOnly: true },
   {
     to: '/admin/catalog/staff-roles',

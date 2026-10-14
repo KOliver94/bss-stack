@@ -4,7 +4,7 @@ import type { Clock } from '#/lib/clock.ts'
 import { systemClock } from '#/lib/clock.ts'
 import type { OobConfig } from '#/server/config/oob-schema.ts'
 import { jsonResponse, readJsonBody, runAdminHandler } from './http.ts'
-import { requireLeadership } from '#/server/auth/guards.ts'
+import { requireAdmin, requireLeadership } from '#/server/auth/guards.ts'
 import {
   createLiveSchedule,
   deleteScheduledLive,
@@ -75,7 +75,7 @@ export async function handleAdminHighlightRoute(
   deps: AdminHomepageRouteDeps = {},
 ): Promise<Response> {
   return runAdminHandler(request, deps, async (viewer) => {
-    requireLeadership(viewer)
+    requireAdmin(viewer, new URL(request.url).pathname)
     const body = await readJsonBody(request)
     let videoId: string | null = null
     if (body['videoId'] !== null && body['videoId'] !== undefined) {
@@ -107,7 +107,7 @@ export async function handleAdminLiveRoutes(
   deps: AdminHomepageRouteDeps = {},
 ): Promise<Response> {
   return runAdminHandler(request, deps, async (viewer) => {
-    requireLeadership(viewer)
+    requireAdmin(viewer, new URL(request.url).pathname)
     const liveDeps = {
       viewer,
       clock: deps.clock ?? systemClock,

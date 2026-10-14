@@ -40,7 +40,10 @@ export const can = {
   manageVideoStaffList(viewer: Viewer): boolean {
     return isMember(viewer)
   },
-  manageHomepageSettings(viewer: Viewer): boolean {
+  manageLiveAndHighlight(viewer: Viewer): boolean {
+    return isMember(viewer)
+  },
+  manageAboutVideos(viewer: Viewer): boolean {
     return isLeadership(viewer)
   },
   viewMemberDiagnostics(viewer: Viewer): boolean {

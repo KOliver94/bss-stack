@@ -16,8 +16,8 @@ export async function setHighlightedVideo(
     clock?: Clock
   },
 ): Promise<void> {
-  if (!can.manageHomepageSettings(params.viewer)) {
-    throw new ForbiddenError('A kiemelés kezelése vezetőségi jog.')
+  if (!can.manageLiveAndHighlight(params.viewer)) {
+    throw new ForbiddenError('A kiemelés kezelése tagsági jog.')
   }
 
   await executor.transaction(async (tx) => {

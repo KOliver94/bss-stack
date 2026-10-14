@@ -51,6 +51,11 @@ const memberViewer: Viewer = {
   sub: 'member-sub',
   username: 'tag',
 }
+const schonherzViewer: Viewer = {
+  level: 'schonherz',
+  sub: 'schonherz-sub',
+  username: 'schonherz',
+}
 
 async function setupDb(): Promise<NodePgDatabase<Record<string, never>>> {
   const migrated = await createMigratedTestDatabase('bss_homepage')
@@ -117,7 +122,7 @@ async function seedPublicVideo(
 }
 
 describe.skipIf(!hasTestDatabase)('BSS-017: live ütemezés', () => {
-  it('létrehozás normalizál és oEmbed ellenőriz; tag tiltott', async () => {
+  it('létrehozás normalizál és oEmbed ellenőriz; nem tag tiltott', async () => {
     const db = await setupDb()
     const mock = installFetchMock(okOembedRoutes)
     try {
@@ -136,7 +141,7 @@ describe.skipIf(!hasTestDatabase)('BSS-017: live ütemezés', () => {
       await expect(
         createLiveSchedule(
           db,
-          { viewer: memberViewer, clock },
+          { viewer: schonherzViewer, clock },
           {
             youtubeUrl: 'https://youtu.be/dQw4w9WgXcQ',
             startsAt: new Date('2026-09-01T18:00:00.000Z'),
@@ -342,7 +347,11 @@ describe.skipIf(!hasTestDatabase)(
         }),
       ).rejects.toThrow(/publikált, publikus/)
       await expect(
-        setHighlightedVideo(db, { viewer: memberViewer, videoId: null, clock }),
+        setHighlightedVideo(db, {
+          viewer: schonherzViewer,
+          videoId: null,
+          clock,
+        }),
       ).rejects.toBeInstanceOf(ForbiddenError)
 
       const okVideo = await seedPublicVideo(db, 'kiemelt-ok')
@@ -422,6 +431,15 @@ describe.skipIf(!hasTestDatabase)('BSS-017: Rólunk-videók', () => {
     const archived = await seedPublicVideo(db, 'rolunk-archived', {
       status: 'archived',
     })
+
+    // A Rólunk-videók kezelése vezetőségi jog marad:
+    await expect(
+      setAboutVideos(db, {
+        viewer: memberViewer,
+        orderedVideoIds: [v1.id],
+        clock,
+      }),
+    ).rejects.toBeInstanceOf(ForbiddenError)
 
     // Érvénytelen (archivált) videóval a beállítás hibát ad:
     await expect(

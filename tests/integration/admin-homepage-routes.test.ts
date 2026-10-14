@@ -13,6 +13,7 @@ import {
 } from '#/server/api/admin/homepage-routes.ts'
 import { getHomepageAdminData } from '#/server/admin/homepage-admin.ts'
 import { liveStreams, siteSettings, videos } from '#/db/schema.ts'
+import { FakeClock } from '#/lib/clock.ts'
 
 const hasTestDatabase = Boolean(process.env.TEST_DATABASE_URL)
 
@@ -42,22 +43,24 @@ function oembedFetch(ok = true): typeof fetch {
 }
 
 describe.skipIf(!hasTestDatabase)('BSS-031: jogosultságok', () => {
-  for (const [name, call] of [
+  for (const [who, name, call] of [
     [
+      'nem tag',
       'kiemelés',
       (ctx: Awaited<ReturnType<typeof setupAdminApiTest>>) =>
         handleAdminHighlightRoute(
-          jsonRequest(ctx.memberToken, '/api/admin/highlight', {
+          jsonRequest(ctx.schonherzToken, '/api/admin/highlight', {
             videoId: null,
           }),
           deps(ctx),
         ),
     ],
     [
+      'nem tag',
       'live létrehozás',
       (ctx: Awaited<ReturnType<typeof setupAdminApiTest>>) =>
         handleAdminLiveRoutes(
-          jsonRequest(ctx.memberToken, '/api/admin/live', {
+          jsonRequest(ctx.schonherzToken, '/api/admin/live', {
             youtubeUrl: 'https://www.youtube.com/watch?v=abc123',
             startsAt: '2026-09-01T10:00:00Z',
             endsAt: '2026-09-01T12:00:00Z',
@@ -68,6 +71,7 @@ describe.skipIf(!hasTestDatabase)('BSS-031: jogosultságok', () => {
         ),
     ],
     [
+      'tag',
       'Rólunk mentés',
       (ctx: Awaited<ReturnType<typeof setupAdminApiTest>>) =>
         handleAdminAboutRoute(
@@ -78,12 +82,21 @@ describe.skipIf(!hasTestDatabase)('BSS-031: jogosultságok', () => {
         ),
     ],
   ] as const) {
-    it(`tag nem hívhatja a ${name} műveletet`, async () => {
+    it(`${who} nem hívhatja a ${name} műveletet`, async () => {
       const ctx = await setupAdminApiTest(`bss hp-${name.length}`)
       const response = await call(ctx)
       expect(response.status).toBe(403)
     })
   }
+
+  it('tag kezelheti a kiemelést', async () => {
+    const ctx = await setupAdminApiTest('bss hpmember')
+    const response = await handleAdminHighlightRoute(
+      jsonRequest(ctx.memberToken, '/api/admin/highlight', { videoId: null }),
+      deps(ctx),
+    )
+    expect(response.status).toBe(200)
+  })
 
   it('névtelen 401-et kap belépési URL-lel', async () => {
     const ctx = await setupAdminApiTest('bss hpanon')
@@ -154,7 +167,9 @@ describe.skipIf(!hasTestDatabase)('BSS-031: kiemelés', () => {
 describe.skipIf(!hasTestDatabase)('BSS-031: live', () => {
   it('hibás YouTube URL nem menthető; érvényes igen; átfedés 409', async () => {
     const ctx = await setupAdminApiTest('bss hplive')
-    const baseDeps = { ...deps(ctx), fetchImpl: oembedFetch(false) }
+    // Within the 10:00–12:00 window, so `start_now` keeps endsAt > startsAt.
+    const clock = new FakeClock('2026-09-01T10:30:00+02:00')
+    const baseDeps = { ...deps(ctx), clock, fetchImpl: oembedFetch(false) }
 
     // Hibás azonosító (oEmbed 404): 400-as validációs hiba.
     const bad = await handleAdminLiveRoutes(
@@ -172,7 +187,7 @@ describe.skipIf(!hasTestDatabase)('BSS-031: live', () => {
     expect(badBody.payload['error']).toBe('validation')
 
     // Érvényes oEmbed válasszal menthető.
-    const okDeps = { ...deps(ctx), fetchImpl: oembedFetch(true) }
+    const okDeps = { ...deps(ctx), clock, fetchImpl: oembedFetch(true) }
     const created = await handleAdminLiveRoutes(
       jsonRequest(ctx.leadershipToken, '/api/admin/live', {
         youtubeUrl: 'https://www.youtube.com/watch?v=abc12345',

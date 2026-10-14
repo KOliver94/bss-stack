@@ -1,10 +1,10 @@
-import { createFileRoute, redirect } from '@tanstack/react-router'
+import { createFileRoute } from '@tanstack/react-router'
 import { createServerFn } from '@tanstack/react-start'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { getDefaultDb } from '#/server/auth/session-store.ts'
 import { getHomepageAdminData } from '#/server/admin/homepage-admin.ts'
-import { fetchLeadershipAreaAccess } from '#/server/pages/admin/access-fn.ts'
+import { fetchViewerState } from '#/server/pages/viewer-fn.ts'
 import { ErrorState, LoadingState } from '#/components/PageStates.tsx'
 import {
   AdminPrimaryButton,
@@ -33,15 +33,6 @@ const loadHomepageAdmin = createServerFn({ method: 'GET' }).handler(
 )
 
 export const Route = createFileRoute('/admin/homepage')({
-  beforeLoad: async () => {
-    const access = await fetchLeadershipAreaAccess()
-    if (access.kind === 'login') {
-      throw redirect({ href: access.loginUrl })
-    }
-    if (access.kind === 'forbidden') {
-      throw redirect({ to: '/admin/videos' })
-    }
-  },
   loader: ({ context }) =>
     context.queryClient.ensureQueryData({
       queryKey: ['admin-homepage'],
@@ -56,6 +47,12 @@ function HomepageAdminPage() {
     queryKey: ['admin-homepage'],
     queryFn: loadHomepageAdmin,
   })
+  const viewerQuery = useQuery({
+    queryKey: ['viewer'],
+    queryFn: fetchViewerState,
+    staleTime: 60_000,
+  })
+  const isLeadership = viewerQuery.data?.level === 'leadership'
 
   function refresh() {
     void queryClient.invalidateQueries({ queryKey: ['admin-homepage'] })
@@ -74,7 +71,9 @@ function HomepageAdminPage() {
         <div className="flex flex-col gap-6">
           <HighlightSection data={dataQuery.data} onChanged={refresh} />
           <LiveSection data={dataQuery.data} onChanged={refresh} />
-          <AboutSection data={dataQuery.data} onChanged={refresh} />
+          {isLeadership && (
+            <AboutSection data={dataQuery.data} onChanged={refresh} />
+          )}
         </div>
       )}
     </main>

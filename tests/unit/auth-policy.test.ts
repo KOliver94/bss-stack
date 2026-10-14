@@ -88,7 +88,8 @@ describe('admin jogosultsági mátrix (specifikáció 3.2)', () => {
     ['címkekatalógus kezelése', can.manageTagCatalog, false, true],
     ['stábszerepek kezelése', can.manageStaffRoles, false, true],
     ['stáblista egy videón', can.manageVideoStaffList, true, true],
-    ['live/kiemelés/Rólunk kezelés', can.manageHomepageSettings, false, true],
+    ['live/kiemelés kezelés', can.manageLiveAndHighlight, true, true],
+    ['Rólunk-videók kezelése', can.manageAboutVideos, false, true],
     ['tagdiagnosztika', can.viewMemberDiagnostics, false, true],
     ['auditnapló', can.viewAuditLog, false, true],
   ] as const
@@ -104,9 +105,9 @@ describe('admin jogosultsági mátrix (specifikáció 3.2)', () => {
     },
   )
 
-  it('tag nem kezelhet címkekatalógust, live-ot vagy auditot', () => {
+  it('tag nem kezelhet címkekatalógust, Rólunk-videókat vagy auditot', () => {
     expect(can.manageTagCatalog(member)).toBe(false)
-    expect(can.manageHomepageSettings(member)).toBe(false)
+    expect(can.manageAboutVideos(member)).toBe(false)
     expect(can.viewAuditLog(member)).toBe(false)
   })
 

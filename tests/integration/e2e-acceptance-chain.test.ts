@@ -68,14 +68,14 @@ describe.skipIf(!hasTestDatabase)(
         (await responseBody(updated)).payload['version'],
       )
 
-      // A tag a kiemelést nem hívhatja (szerveroldali ellenőrzés).
-      const memberHighlight = await handleAdminHighlightRoute(
-        jsonRequest(ctx.memberToken, '/api/admin/homepage/highlight', {
+      // Nem tag a kiemelést nem hívhatja (szerveroldali ellenőrzés).
+      const schonherzHighlight = await handleAdminHighlightRoute(
+        jsonRequest(ctx.schonherzToken, '/api/admin/homepage/highlight', {
           videoId,
         }),
         deps,
       )
-      expect(memberHighlight.status).toBe(403)
+      expect(schonherzHighlight.status).toBe(403)
 
       const published = await handleAdminVideoRoutes(
         jsonRequest(ctx.memberToken, `/api/admin/videos/${videoId}/publish`, {

@@ -1,9 +1,5 @@
 import { afterAll, describe, expect, it } from 'vitest'
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres'
-import {
-  COURSE_REDIRECT_TARGET,
-  isCoursesPath,
-} from '#/server/pages/courses-redirect.ts'
 import { getAboutPageVideos } from '#/server/homepage/about.ts'
 import type { Viewer } from '#/server/auth/viewer.ts'
 import { aboutPageVideos, memberCache, videos } from '#/db/schema.ts'
@@ -40,16 +36,6 @@ async function setupDb(): Promise<NodePgDatabase<Record<string, never>>> {
   })
   return migrated.db
 }
-
-describe.skipIf(!hasTestDatabase)('BSS-026: tanfolyam átirányítás', () => {
-  it('a /courses és /courses/ is a tanfolyami oldalra mutat', () => {
-    expect(isCoursesPath('/courses')).toBe(true)
-    expect(isCoursesPath('/courses/')).toBe(true)
-    expect(COURSE_REDIRECT_TARGET).toBe('https://tanfolyam.bsstudio.hu/')
-    expect(isCoursesPath('/courses/mas')).toBe(false)
-    expect(isCoursesPath('/videos')).toBe(false)
-  })
-})
 
 describe.skipIf(!hasTestDatabase)('BSS-026: Rólunk videók', () => {
   it('csak publikált, publikus videó marad a listában', async () => {

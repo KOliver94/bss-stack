@@ -12,7 +12,6 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as AdminRouteImport } from './routes/admin'
-import { Route as CoursesRouteImport } from './routes/courses'
 import { Route as SearchRouteImport } from './routes/search'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as AdminAuditRouteImport } from './routes/admin/audit'
@@ -49,11 +48,6 @@ const AboutRoute = AboutRouteImport.update({
 const AdminRoute = AdminRouteImport.update({
   id: '/admin',
   path: '/admin',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const CoursesRoute = CoursesRouteImport.update({
-  id: '/courses',
-  path: '/courses',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SearchRoute = SearchRouteImport.update({
@@ -171,7 +165,6 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/admin': typeof AdminRouteWithChildren
-  '/courses': typeof CoursesRoute
   '/search': typeof SearchRoute
   '/admin/audit': typeof AdminAuditRoute
   '/admin/homepage': typeof AdminHomepageRoute
@@ -198,7 +191,6 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
-  '/courses': typeof CoursesRoute
   '/search': typeof SearchRoute
   '/admin/audit': typeof AdminAuditRoute
   '/admin/homepage': typeof AdminHomepageRoute
@@ -227,7 +219,6 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/admin': typeof AdminRouteWithChildren
-  '/courses': typeof CoursesRoute
   '/search': typeof SearchRoute
   '/admin/audit': typeof AdminAuditRoute
   '/admin/homepage': typeof AdminHomepageRoute
@@ -257,7 +248,6 @@ export interface FileRouteTypes {
     | '/'
     | '/about'
     | '/admin'
-    | '/courses'
     | '/search'
     | '/admin/audit'
     | '/admin/homepage'
@@ -284,7 +274,6 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/about'
-    | '/courses'
     | '/search'
     | '/admin/audit'
     | '/admin/homepage'
@@ -312,7 +301,6 @@ export interface FileRouteTypes {
     | '/'
     | '/about'
     | '/admin'
-    | '/courses'
     | '/search'
     | '/admin/audit'
     | '/admin/homepage'
@@ -341,7 +329,6 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AboutRoute: typeof AboutRoute
   AdminRoute: typeof AdminRouteWithChildren
-  CoursesRoute: typeof CoursesRoute
   SearchRoute: typeof SearchRoute
   EventsSlugRoute: typeof EventsSlugRoute
   MembersSlugRoute: typeof MembersSlugRoute
@@ -374,13 +361,6 @@ declare module '@tanstack/react-router' {
       path: '/admin'
       fullPath: '/admin'
       preLoaderRoute: typeof AdminRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/courses': {
-      id: '/courses'
-      path: '/courses'
-      fullPath: '/courses'
-      preLoaderRoute: typeof CoursesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/search': {
@@ -578,7 +558,6 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AboutRoute: AboutRoute,
   AdminRoute: AdminRouteWithChildren,
-  CoursesRoute: CoursesRoute,
   SearchRoute: SearchRoute,
   EventsSlugRoute: EventsSlugRoute,
   MembersSlugRoute: MembersSlugRoute,

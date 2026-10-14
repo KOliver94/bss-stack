@@ -12,7 +12,7 @@ const NAV_LINKS = [
   { to: '/videos', label: 'Videók' },
   { to: '/events', label: 'Események' },
   { to: '/members', label: 'Tagok' },
-  { to: '/courses', label: 'Tanfolyamok' },
+  { href: 'https://tanfolyam.bsstudio.hu/', label: 'Tanfolyamok' },
   { to: '/about', label: 'Mivel foglalkozunk?' },
 ] as const
 
@@ -61,17 +61,7 @@ export default function Navbar() {
         <nav style={{ flex: 1 }} className="hidden lg:block">
           <div className="inline-flex items-center gap-6 *:font-bold">
             {NAV_LINKS.map((item) => (
-              <Link
-                key={item.to}
-                aria-current={
-                  location.pathname.startsWith(item.to) ? 'page' : undefined
-                }
-                className={`nav-link ${location.pathname.startsWith(item.to) ? 'text-(--orange)' : ''}`}
-                to={item.to}
-                preload={item.to === '/courses' ? false : undefined}
-              >
-                {item.label}
-              </Link>
+              <NavLink key={item.label} item={item} className="nav-link" />
             ))}
           </div>
         </nav>
@@ -119,17 +109,11 @@ export default function Navbar() {
         <nav className="border-t border-(--nav-border-b) bg-(--nav-bg) lg:hidden">
           <div className="site-width flex flex-col gap-1 py-3">
             {NAV_LINKS.map((item) => (
-              <Link
-                key={item.to}
-                aria-current={
-                  location.pathname.startsWith(item.to) ? 'page' : undefined
-                }
-                className={`nav-link py-2 font-bold ${location.pathname.startsWith(item.to) ? 'text-(--orange)' : ''}`}
-                to={item.to}
-                preload={item.to === '/courses' ? false : undefined}
-              >
-                {item.label}
-              </Link>
+              <NavLink
+                key={item.label}
+                item={item}
+                className="nav-link py-2 font-bold"
+              />
             ))}
             <Link
               to="/search"
@@ -142,6 +126,34 @@ export default function Navbar() {
         </nav>
       )}
     </header>
+  )
+}
+
+/** Internal links highlight when active; external ones open the target directly. */
+function NavLink({
+  item,
+  className,
+}: {
+  item: (typeof NAV_LINKS)[number]
+  className: string
+}) {
+  const location = useLocation()
+  if ('href' in item) {
+    return (
+      <a href={item.href} className={className}>
+        {item.label}
+      </a>
+    )
+  }
+  const active = location.pathname.startsWith(item.to)
+  return (
+    <Link
+      aria-current={active ? 'page' : undefined}
+      className={`${className} ${active ? 'text-(--orange)' : ''}`}
+      to={item.to}
+    >
+      {item.label}
+    </Link>
   )
 }
 

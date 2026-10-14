@@ -5,10 +5,6 @@ import {
 import { handleApiRequest, API_PATH_PREFIXES } from '#/server/api/router.ts'
 import { startBackgroundRunner } from '#/server/jobs/runner.ts'
 import type { BackgroundRunnerHandle } from '#/server/jobs/runner.ts'
-import {
-  COURSE_REDIRECT_TARGET,
-  isCoursesPath,
-} from '#/server/pages/courses-redirect.ts'
 import { securityHeaders, robotsTxt } from '#/server/http/security-headers.ts'
 import { getSitemapEntries, sitemapXml } from '#/server/pages/sitemap.ts'
 import { getDefaultDb } from '#/server/auth/session-store.ts'
@@ -75,12 +71,6 @@ export default {
     if (isApiPath(pathname)) {
       ensureBackgroundRunner()
       return handleApiRequest(request)
-    }
-    if (isCoursesPath(pathname)) {
-      return new Response(null, {
-        status: 302,
-        headers: { location: COURSE_REDIRECT_TARGET },
-      })
     }
     if (pathname === '/robots.txt') {
       return new Response(robotsTxt(url.origin), {

@@ -2,6 +2,7 @@ import {
   HeadContent,
   Scripts,
   createRootRouteWithContext,
+  useRouterState,
 } from '@tanstack/react-router'
 import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
 import { TanStackDevtools } from '@tanstack/react-devtools'
@@ -62,19 +63,22 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
   shellComponent: RootDocument,
 })
 
+const FULL_SCREEN_PATHS = new Set(['/login'])
+
 function RootDocument({ children }: { children: React.ReactNode }) {
+  const fullScreen = useRouterState({
+    select: (state) => FULL_SCREEN_PATHS.has(state.location.pathname),
+  })
   return (
     <html lang="hu" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
         <HeadContent />
       </head>
-      {/* The page background (color + dot pattern) sits on the root element
-           in styles.css, so `body` stays transparent. */}
       <body className="min-h-screen flex flex-col">
-        <Navbar />
+        {!fullScreen && <Navbar />}
         <div className="flex-1">{children}</div>
-        <Footer />
+        {!fullScreen && <Footer />}
         <TanStackDevtools
           config={{
             position: 'bottom-right',

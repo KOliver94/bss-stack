@@ -4,6 +4,7 @@ import { eq } from 'drizzle-orm'
 import { memberCache } from '#/db/schema.ts'
 import { getDefaultDb } from '#/server/auth/session-store.ts'
 import { isAdminAreaAllowed } from '#/server/auth/policy.ts'
+import { getCachedOobConfig } from '#/server/config/load.ts'
 import { resolveViewerStateFromRequest } from './viewer.ts'
 
 export interface ViewerStateDto {
@@ -16,6 +17,8 @@ export interface ViewerStateDto {
   avatarUrl: string | null
   /** Whether the admin area is visible in the menu (at least a member). */
   canAccessAdmin: boolean
+  /** Whether the navbar offers the AuthSCH login for Schönherz viewers. */
+  authschLoginEnabled: boolean
 }
 
 export const fetchViewerState = createServerFn({ method: 'GET' }).handler(
@@ -33,9 +36,18 @@ export const fetchViewerState = createServerFn({ method: 'GET' }).handler(
       displayName: profile?.fullName ?? state.viewer.username,
       avatarUrl: profile?.avatarUrl ?? null,
       canAccessAdmin: isAdminAreaAllowed(state.viewer),
+      authschLoginEnabled: isAuthschLoginEnabled(),
     }
   },
 )
+
+function isAuthschLoginEnabled(): boolean {
+  try {
+    return getCachedOobConfig().authsch !== null
+  } catch {
+    return false
+  }
+}
 
 /**
  * Name and profile picture from the member cache. The navbar must not break

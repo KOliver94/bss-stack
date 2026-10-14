@@ -3,6 +3,7 @@ import {
   anonymousViewer,
   atLeast,
   viewerFromIdentity,
+  viewerFromSession,
 } from '#/server/auth/viewer.ts'
 import type { Viewer } from '#/server/auth/viewer.ts'
 import { can, isLeadership, isAdminAreaAllowed } from '#/server/auth/policy.ts'
@@ -53,6 +54,29 @@ describe('nézői szint felismerése csoportokból', () => {
     expect(member.level).toBe('member')
     expect(leadership.level).toBe('leadership')
     expect(admin.level).toBe('leadership')
+  })
+
+  it('AuthSCH session mindig schönherz szintű, csoportoktól függetlenül', () => {
+    const session = {
+      id: 'x',
+      memberSub: 'authsch:abc',
+      username: 'Schönherz Elek',
+      groups: ['Admin'],
+      accessToken: null,
+      createdAt: new Date(),
+      expiresAt: new Date(),
+    }
+    expect(
+      viewerFromSession({ ...session, provider: 'authsch' }, config.authentik),
+    ).toEqual({
+      level: 'schonherz',
+      sub: 'authsch:abc',
+      username: 'Schönherz Elek',
+    })
+    expect(
+      viewerFromSession({ ...session, provider: 'authentik' }, config.authentik)
+        .level,
+    ).toBe('leadership')
   })
 
   it.each(['Stúdiós', 'Stúdiós jelölt', 'Stúdiós jelölt-jelölt', 'Öregtag'])(

@@ -1,5 +1,6 @@
 import {
   authFailurePage,
+  authschDisabledPage,
   authUnavailablePage,
   badRequestPage,
   forbiddenPage,
@@ -15,6 +16,7 @@ import {
   buildLoginTransaction,
   decodeJwtPayload,
   exchangeCodeForTokens,
+  extractAuthschIdentity,
   extractIdentityFromClaims,
   fetchDiscovery,
   OidcProtocolError,
@@ -22,15 +24,20 @@ import {
   safeEquals,
   validateIdTokenClaims,
 } from '#/server/auth/oidc.ts'
-import type { LoginTransactionData, OidcDiscovery } from '#/server/auth/oidc.ts'
+import type {
+  AuthenticatedIdentity,
+  LoginTransactionData,
+  OidcDiscovery,
+} from '#/server/auth/oidc.ts'
 import {
   createAuthSession,
   deleteAuthSession,
   findActiveAuthSession,
   getDefaultDb,
 } from '#/server/auth/session-store.ts'
-import type { Database } from '#/server/auth/session-store.ts'
+import type { AuthProvider, Database } from '#/server/auth/session-store.ts'
 import {
+  AUTHSCH_TXN_COOKIE_NAME,
   OIDC_TXN_COOKIE_NAME,
   OIDC_TXN_TTL_SECONDS,
   readCookieValue,
@@ -43,13 +50,14 @@ import type { CookieSpec } from '#/server/auth/session-cookies.ts'
 import type { Clock } from '#/lib/clock.ts'
 import { systemClock } from '#/lib/clock.ts'
 import { getCachedOobConfig } from '#/server/config/load.ts'
-import type { OobConfig } from '#/server/config/oob-schema.ts'
+import type { OidcClientConfig, OobConfig } from '#/server/config/oob-schema.ts'
 import { viewerFromSession } from '#/server/auth/viewer.ts'
 import { syncMemberUsername } from '#/server/members/username.ts'
 
 const TXN_MAX_AGE_MS = OIDC_TXN_TTL_SECONDS * 1000
 
 export const CALLBACK_PATH = '/api/auth/callback'
+export const AUTHSCH_CALLBACK_PATH = '/api/auth/authsch/callback'
 
 export interface AuthRouteDeps {
   loadConfig?: () => OobConfig
@@ -60,6 +68,8 @@ export interface AuthRouteDeps {
 export interface AuthRouteHandlers {
   login: (request: Request) => Promise<Response>
   callback: (request: Request) => Promise<Response>
+  authschLogin: (request: Request) => Promise<Response>
+  authschCallback: (request: Request) => Promise<Response>
   logout: (request: Request) => Promise<Response>
   me: (request: Request) => Promise<Response>
 }
@@ -119,38 +129,73 @@ function getCachedOobConfigDefault(): OobConfig {
   return getCachedOobConfig()
 }
 
+/** One OIDC login flow: Authentik for BSS members, AuthSCH for Schönherz. */
+interface OidcFlow {
+  provider: AuthProvider
+  providerName: string
+  client: OidcClientConfig
+  callbackPath: string
+  txnCookieName: string
+  extractIdentity: (claims: Record<string, unknown>) => AuthenticatedIdentity
+}
+
+function authentikFlow(config: OobConfig): OidcFlow {
+  return {
+    provider: 'authentik',
+    providerName: 'Authentik',
+    client: config.authentik,
+    callbackPath: CALLBACK_PATH,
+    txnCookieName: OIDC_TXN_COOKIE_NAME,
+    extractIdentity: (claims) =>
+      extractIdentityFromClaims(claims, config.authentik),
+  }
+}
+
+function authschFlow(config: OobConfig): OidcFlow | null {
+  if (config.authsch === null) {
+    return null
+  }
+  return {
+    provider: 'authsch',
+    providerName: 'AuthSCH',
+    client: config.authsch,
+    callbackPath: AUTHSCH_CALLBACK_PATH,
+    txnCookieName: AUTHSCH_TXN_COOKIE_NAME,
+    extractIdentity: extractAuthschIdentity,
+  }
+}
+
 export function createAuthRouteHandlers(
   deps: AuthRouteDeps = {},
 ): AuthRouteHandlers {
-  async function login(request: Request): Promise<Response> {
-    const loaded = loadDepsConfig(deps)
-    if ('errorResponse' in loaded) {
-      return loaded.errorResponse
-    }
-    const config = loaded.config
-
+  async function startLogin(
+    request: Request,
+    flow: OidcFlow,
+  ): Promise<Response> {
     let discovery: OidcDiscovery
     try {
-      discovery = await fetchDiscovery(config.authentik)
+      discovery = await fetchDiscovery(flow.client, {
+        providerName: flow.providerName,
+      })
     } catch (error) {
-      logAuthFailure('Az Authentik discovery nem elérhető', error)
-      return authUnavailablePage()
+      logAuthFailure(`Az ${flow.providerName} discovery nem elérhető`, error)
+      return authUnavailablePage(flow.providerName)
     }
 
     const url = new URL(request.url)
     const returnTo = sanitizeReturnTo(url.searchParams.get('returnTo'))
     const transaction = buildLoginTransaction(returnTo)
-    const redirectUri = `${getRequestOrigin(request)}${CALLBACK_PATH}`
+    const redirectUri = `${getRequestOrigin(request)}${flow.callbackPath}`
     const authorizeUrl = buildAuthorizationUrl(
       discovery,
-      config.authentik,
+      flow.client,
       redirectUri,
       transaction,
     )
 
     const txnCookie: CookieSpec = {
-      name: OIDC_TXN_COOKIE_NAME,
-      value: signOidcTxn(JSON.stringify(transaction), config.authentik),
+      name: flow.txnCookieName,
+      value: signOidcTxn(JSON.stringify(transaction), flow.client),
       maxAgeSeconds: OIDC_TXN_TTL_SECONDS,
       secure: isSecureRequest(request),
     }
@@ -158,19 +203,16 @@ export function createAuthRouteHandlers(
     return redirectResponse(authorizeUrl, [txnCookie])
   }
 
-  async function callback(request: Request): Promise<Response> {
-    const loaded = loadDepsConfig(deps)
-    if ('errorResponse' in loaded) {
-      return loaded.errorResponse
-    }
-    const config = loaded.config
-
+  async function finishLogin(
+    request: Request,
+    flow: OidcFlow,
+  ): Promise<Response> {
     const url = new URL(request.url)
-    const cookieValue = readCookieValue(request, OIDC_TXN_COOKIE_NAME)
+    const cookieValue = readCookieValue(request, flow.txnCookieName)
     const txnJson =
       cookieValue === null
         ? null
-        : verifyAndReadOidcTxn(cookieValue, config.authentik)
+        : verifyAndReadOidcTxn(cookieValue, flow.client)
 
     if (txnJson === null) {
       return badRequestPage(
@@ -201,23 +243,26 @@ export function createAuthRouteHandlers(
     }
 
     try {
-      const discovery = await fetchDiscovery(config.authentik)
-      const redirectUri = `${getRequestOrigin(request)}${CALLBACK_PATH}`
+      const discovery = await fetchDiscovery(flow.client, {
+        providerName: flow.providerName,
+      })
+      const redirectUri = `${getRequestOrigin(request)}${flow.callbackPath}`
       const tokens = await exchangeCodeForTokens(
         discovery,
-        config.authentik,
+        flow.client,
         redirectUri,
         code,
         transaction.codeVerifier,
+        { providerName: flow.providerName },
       )
       const claims = decodeJwtPayload(tokens.idToken)
       validateIdTokenClaims(claims, {
         issuer: discovery.issuer,
-        clientId: config.authentik.clientId,
+        clientId: flow.client.clientId,
         nonce: transaction.nonce,
         clock: deps.clock,
       })
-      const identity = extractIdentityFromClaims(claims, config.authentik)
+      const identity = flow.extractIdentity(claims)
 
       const created = await createAuthSession(
         {
@@ -225,13 +270,12 @@ export function createAuthRouteHandlers(
           username: identity.username,
           groups: identity.groups,
           accessToken: tokens.accessToken,
+          provider: flow.provider,
         },
         { db: deps.db, clock: deps.clock },
       )
 
-      // The claim falls back to `sub` when Authentik sends no
-      // preferred_username; that fallback is not a real name to store.
-      if (identity.username !== identity.sub) {
+      if (flow.provider === 'authentik' && identity.username !== identity.sub) {
         try {
           await syncMemberUsername(
             deps.db ?? (await getDefaultDb()),
@@ -254,7 +298,7 @@ export function createAuthRouteHandlers(
           secure,
         },
         {
-          name: OIDC_TXN_COOKIE_NAME,
+          name: flow.txnCookieName,
           value: '',
           maxAgeSeconds: 0,
           secure,
@@ -263,10 +307,10 @@ export function createAuthRouteHandlers(
     } catch (error) {
       if (error instanceof OidcUnavailableError) {
         logAuthFailure(
-          'Az Authentik nem elérhető a bejelentkezés közben',
+          `Az ${flow.providerName} nem elérhető a bejelentkezés közben`,
           error,
         )
-        return authUnavailablePage()
+        return authUnavailablePage(flow.providerName)
       }
       if (error instanceof OidcProtocolError) {
         logAuthFailure('Protokolli hiba a bejelentkezés közben', error)
@@ -279,6 +323,40 @@ export function createAuthRouteHandlers(
         'Váratlan hiba történt a bejelentkezés során. Próbáld újra.',
       )
     }
+  }
+
+  async function login(request: Request): Promise<Response> {
+    const loaded = loadDepsConfig(deps)
+    if ('errorResponse' in loaded) {
+      return loaded.errorResponse
+    }
+    return startLogin(request, authentikFlow(loaded.config))
+  }
+
+  async function callback(request: Request): Promise<Response> {
+    const loaded = loadDepsConfig(deps)
+    if ('errorResponse' in loaded) {
+      return loaded.errorResponse
+    }
+    return finishLogin(request, authentikFlow(loaded.config))
+  }
+
+  async function authschLogin(request: Request): Promise<Response> {
+    const loaded = loadDepsConfig(deps)
+    if ('errorResponse' in loaded) {
+      return loaded.errorResponse
+    }
+    const flow = authschFlow(loaded.config)
+    return flow === null ? authschDisabledPage() : startLogin(request, flow)
+  }
+
+  async function authschCallback(request: Request): Promise<Response> {
+    const loaded = loadDepsConfig(deps)
+    if ('errorResponse' in loaded) {
+      return loaded.errorResponse
+    }
+    const flow = authschFlow(loaded.config)
+    return flow === null ? authschDisabledPage() : finishLogin(request, flow)
   }
 
   async function logout(request: Request): Promise<Response> {
@@ -310,6 +388,7 @@ export function createAuthRouteHandlers(
     return redirectResponse('/', [
       { name: SESSION_COOKIE_NAME, value: '', maxAgeSeconds: 0, secure },
       { name: OIDC_TXN_COOKIE_NAME, value: '', maxAgeSeconds: 0, secure },
+      { name: AUTHSCH_TXN_COOKIE_NAME, value: '', maxAgeSeconds: 0, secure },
     ])
   }
 
@@ -342,5 +421,5 @@ export function createAuthRouteHandlers(
     })
   }
 
-  return { login, callback, logout, me }
+  return { login, callback, authschLogin, authschCallback, logout, me }
 }

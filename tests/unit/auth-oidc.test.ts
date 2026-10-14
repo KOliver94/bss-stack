@@ -5,6 +5,7 @@ import {
   clearDiscoveryCache,
   decodeJwtPayload,
   exchangeCodeForTokens,
+  extractAuthschIdentity,
   extractIdentityFromClaims,
   fetchDiscovery,
   OidcProtocolError,
@@ -354,6 +355,30 @@ describe('identity kinyerés', () => {
     expect(
       extractIdentityFromClaims({ sub: 'sub-1' }, config.authentik),
     ).toMatchObject({ sub: 'sub-1', username: 'sub-1' })
+  })
+})
+
+describe('AuthSCH identity kinyerés', () => {
+  it('a sub névtérbe kerül, a név a name claimből jön, csoport nincs', () => {
+    expect(
+      extractAuthschIdentity({
+        sub: 'e3b0c442-98fc-1c14-9afb-f4c8996fb924',
+        name: 'Schönherz Elek',
+        groups: ['Admin'],
+      }),
+    ).toEqual({
+      sub: 'authsch:e3b0c442-98fc-1c14-9afb-f4c8996fb924',
+      username: 'Schönherz Elek',
+      groups: [],
+    })
+  })
+
+  it('name claim nélkül a névteres sub a felhasználónév', () => {
+    expect(extractAuthschIdentity({ sub: 'abc' }).username).toBe('authsch:abc')
+  })
+
+  it('hiányzó sub esetén nem talál ki identitást', () => {
+    expect(() => extractAuthschIdentity({ name: 'Valaki' })).toThrow(/sub/)
   })
 })
 

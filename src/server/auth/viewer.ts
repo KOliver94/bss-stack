@@ -12,7 +12,6 @@ const LEVEL_RANK: Record<ViewerLevel, number> = {
 
 export interface Viewer {
   level: ViewerLevel
-  /** Authentik sub; null for anonymous. */
   sub: string | null
   username: string | null
 }
@@ -59,7 +58,10 @@ export function viewerFromSession(
     return anonymousViewer()
   }
   return {
-    level: resolveViewerLevel(session.groups, config),
+    level:
+      session.provider === 'authsch'
+        ? 'schonherz'
+        : resolveViewerLevel(session.groups, config),
     sub: session.memberSub,
     username: session.username,
   }

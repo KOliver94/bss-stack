@@ -55,4 +55,48 @@ describe('OOB config validáció', () => {
     const raw = buildRawOobConfig({ authentik: { scopes: ['profile'] } })
     expect(() => validateOobConfig(raw)).toThrow(/openid/)
   })
+
+  it('az authsch szekció opcionális; hiányában az AuthSCH belépés ki van kapcsolva', () => {
+    expect(validateOobConfig(buildRawOobConfig()).authsch).toBeNull()
+  })
+
+  it('megadott authsch szekciót az Authentikkel azonos szabályokkal ellenőriz', () => {
+    const valid = validateOobConfig({
+      ...buildRawOobConfig(),
+      authsch: {
+        issuerUrl: 'https://auth.sch.bme.hu',
+        clientId: 'bss-authsch',
+        clientSecret: 'authsch-titok',
+        scopes: ['openid', 'profile'],
+      },
+    })
+    expect(valid.authsch).toEqual({
+      issuerUrl: 'https://auth.sch.bme.hu',
+      clientId: 'bss-authsch',
+      clientSecret: 'authsch-titok',
+      scopes: ['openid', 'profile'],
+    })
+
+    try {
+      validateOobConfig({
+        ...buildRawOobConfig(),
+        authsch: {
+          issuerUrl: 'http://auth.sch.bme.hu',
+          clientId: 'bss-authsch',
+          clientSecret: '',
+          scopes: ['profile'],
+        },
+      })
+      expect.unreachable()
+    } catch (error) {
+      const problems = (error as OobConfigError).problems
+      expect(problems).toContain(
+        'authsch.clientSecret: kötelező szövegmező, hiányzik vagy üres.',
+      )
+      expect(problems.some((p) => p.startsWith('authsch.issuerUrl:'))).toBe(
+        true,
+      )
+      expect(problems).toContain('authsch.scopes: az openid scope kötelező.')
+    }
+  })
 })

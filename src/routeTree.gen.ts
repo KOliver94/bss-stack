@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as ContactRouteImport } from './routes/contact'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as SearchRouteImport } from './routes/search'
 import { Route as TagokRouteImport } from './routes/tagok'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
@@ -58,6 +59,11 @@ const AdminRoute = AdminRouteImport.update({
 const ContactRoute = ContactRouteImport.update({
   id: '/contact',
   path: '/contact',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SearchRoute = SearchRouteImport.update({
@@ -196,6 +202,7 @@ export interface FileRoutesByFullPath {
   '/about': typeof AboutRoute
   '/admin': typeof AdminRouteWithChildren
   '/contact': typeof ContactRoute
+  '/login': typeof LoginRoute
   '/search': typeof SearchRoute
   '/tagok': typeof TagokRoute
   '/admin/audit': typeof AdminAuditRoute
@@ -227,6 +234,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/contact': typeof ContactRoute
+  '/login': typeof LoginRoute
   '/search': typeof SearchRoute
   '/tagok': typeof TagokRoute
   '/admin/audit': typeof AdminAuditRoute
@@ -260,6 +268,7 @@ export interface FileRoutesById {
   '/about': typeof AboutRoute
   '/admin': typeof AdminRouteWithChildren
   '/contact': typeof ContactRoute
+  '/login': typeof LoginRoute
   '/search': typeof SearchRoute
   '/tagok': typeof TagokRoute
   '/admin/audit': typeof AdminAuditRoute
@@ -294,6 +303,7 @@ export interface FileRouteTypes {
     | '/about'
     | '/admin'
     | '/contact'
+    | '/login'
     | '/search'
     | '/tagok'
     | '/admin/audit'
@@ -325,6 +335,7 @@ export interface FileRouteTypes {
     | '/'
     | '/about'
     | '/contact'
+    | '/login'
     | '/search'
     | '/tagok'
     | '/admin/audit'
@@ -357,6 +368,7 @@ export interface FileRouteTypes {
     | '/about'
     | '/admin'
     | '/contact'
+    | '/login'
     | '/search'
     | '/tagok'
     | '/admin/audit'
@@ -390,6 +402,7 @@ export interface RootRouteChildren {
   AboutRoute: typeof AboutRoute
   AdminRoute: typeof AdminRouteWithChildren
   ContactRoute: typeof ContactRoute
+  LoginRoute: typeof LoginRoute
   SearchRoute: typeof SearchRoute
   TagokRoute: typeof TagokRoute
   EventsSlugRoute: typeof EventsSlugRoute
@@ -433,6 +446,13 @@ declare module '@tanstack/react-router' {
       path: '/contact'
       fullPath: '/contact'
       preLoaderRoute: typeof ContactRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/search': {
@@ -659,6 +679,7 @@ const rootRouteChildren: RootRouteChildren = {
   AboutRoute: AboutRoute,
   AdminRoute: AdminRouteWithChildren,
   ContactRoute: ContactRoute,
+  LoginRoute: LoginRoute,
   SearchRoute: SearchRoute,
   TagokRoute: TagokRoute,
   EventsSlugRoute: EventsSlugRoute,

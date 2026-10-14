@@ -1,7 +1,7 @@
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto'
 import { systemClock } from '#/lib/clock.ts'
 import type { Clock } from '#/lib/clock.ts'
-import type { OobConfig } from '#/server/config/oob-schema.ts'
+import type { OidcClientConfig, OobConfig } from '#/server/config/oob-schema.ts'
 
 export const DISCOVERY_CACHE_TTL_MS = 60 * 60 * 1000
 export const DISCOVERY_TIMEOUT_MS = 5_000
@@ -101,12 +101,17 @@ async function fetchWithTimeout(
 }
 
 export async function fetchDiscovery(
-  authentik: OobConfig['authentik'],
-  options: { fetchImpl?: typeof fetch; clock?: Clock } = {},
+  client: OidcClientConfig,
+  options: {
+    fetchImpl?: typeof fetch
+    clock?: Clock
+    providerName?: string
+  } = {},
 ): Promise<OidcDiscovery> {
   const fetchImpl = options.fetchImpl ?? fetch
   const clock = options.clock ?? systemClock
-  const cacheKey = `${authentik.clientId}@${authentik.issuerUrl}`
+  const providerName = options.providerName ?? 'Authentik'
+  const cacheKey = `${client.clientId}@${client.issuerUrl}`
   const cached = discoveryCache.get(cacheKey)
   const now = clock.now().getTime()
 
@@ -121,9 +126,7 @@ export async function fetchDiscovery(
 
   const wellKnownUrl = new URL(
     '.well-known/openid-configuration',
-    authentik.issuerUrl.endsWith('/')
-      ? authentik.issuerUrl
-      : `${authentik.issuerUrl}/`,
+    client.issuerUrl.endsWith('/') ? client.issuerUrl : `${client.issuerUrl}/`,
   )
 
   let response: Response
@@ -136,14 +139,14 @@ export async function fetchDiscovery(
     )
   } catch (error) {
     throw new OidcUnavailableError(
-      `Az Authentik nem elérhető a discovery lekérdezéshez: ${wellKnownUrl.toString()}`,
+      `Az ${providerName} nem elérhető a discovery lekérdezéshez: ${wellKnownUrl.toString()}`,
       error,
     )
   }
 
   if (!response.ok) {
     throw new OidcUnavailableError(
-      `Az Authentik discovery válasza hibás: HTTP ${response.status}`,
+      `Az ${providerName} discovery válasza hibás: HTTP ${response.status}`,
     )
   }
 
@@ -152,17 +155,15 @@ export async function fetchDiscovery(
     raw = await response.json()
   } catch (error) {
     throw new OidcUnavailableError(
-      'Az Authentik discovery válasza nem érvényes JSON.',
+      `Az ${providerName} discovery válasza nem érvényes JSON.`,
       error,
     )
   }
 
   const discovery = parseDiscovery(raw)
-  if (
-    normalizeIssuer(discovery.issuer) !== normalizeIssuer(authentik.issuerUrl)
-  ) {
+  if (normalizeIssuer(discovery.issuer) !== normalizeIssuer(client.issuerUrl)) {
     throw new OidcProtocolError(
-      `Az Authentik discovery issuer-e eltér a beállítótól: ${discovery.issuer}`,
+      `Az ${providerName} discovery issuer-e eltér a beállítottól: ${discovery.issuer}`,
     )
   }
 
@@ -205,7 +206,7 @@ export function buildLoginTransaction(returnTo: string): LoginTransactionData {
 
 export function buildAuthorizationUrl(
   discovery: OidcDiscovery,
-  config: OobConfig['authentik'],
+  config: OidcClientConfig,
   redirectUri: string,
   transaction: Pick<LoginTransactionData, 'state' | 'codeVerifier' | 'nonce'>,
 ): string {
@@ -226,13 +227,14 @@ export function buildAuthorizationUrl(
 
 export async function exchangeCodeForTokens(
   discovery: OidcDiscovery,
-  config: OobConfig['authentik'],
+  config: OidcClientConfig,
   redirectUri: string,
   code: string,
   codeVerifier: string,
-  options: { fetchImpl?: typeof fetch } = {},
+  options: { fetchImpl?: typeof fetch; providerName?: string } = {},
 ): Promise<TokenSet> {
   const fetchImpl = options.fetchImpl ?? fetch
+  const providerName = options.providerName ?? 'Authentik'
 
   let response: Response
   try {
@@ -258,7 +260,7 @@ export async function exchangeCodeForTokens(
     )
   } catch (error) {
     throw new OidcUnavailableError(
-      'A token csere nem sikerült, az Authentik nem elérhető.',
+      `A token csere nem sikerült, az ${providerName} nem elérhető.`,
       error,
     )
   }
@@ -383,5 +385,24 @@ export function extractIdentityFromClaims(
     sub,
     username,
     groups,
+  }
+}
+
+export const AUTHSCH_SUB_PREFIX = 'authsch:'
+
+export function extractAuthschIdentity(
+  claims: Record<string, unknown>,
+): AuthenticatedIdentity {
+  const sub = claimString(claims, 'sub')
+  if (!sub) {
+    throw new OidcProtocolError(
+      'Az AuthSCH id_tokenben hiányzik a kötelező "sub" claim.',
+    )
+  }
+  const namespacedSub = `${AUTHSCH_SUB_PREFIX}${sub}`
+  return {
+    sub: namespacedSub,
+    username: claimString(claims, 'name') ?? namespacedSub,
+    groups: [],
   }
 }

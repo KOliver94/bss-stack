@@ -19,6 +19,17 @@ import { createMigratedTestDatabase } from '../helpers/test-db.ts'
 const testConfig: OobConfig = validateOobConfig(buildRawOobConfig())
 
 const ISSUER = 'https://authentik.local/application/o/bss'
+const AUTHSCH_ISSUER = 'https://auth.sch.bme.hu'
+
+const authschConfig: OobConfig = validateOobConfig({
+  ...buildRawOobConfig(),
+  authsch: {
+    issuerUrl: AUTHSCH_ISSUER,
+    clientId: 'bss-authsch',
+    clientSecret: 'authsch-test-secret',
+    scopes: ['openid', 'profile'],
+  },
+})
 
 const hasTestDatabase = Boolean(process.env.TEST_DATABASE_URL)
 
@@ -115,7 +126,7 @@ function validClaims(clock: FakeClock, extra: Record<string, unknown>) {
   }
 }
 
-async function setupFlow(): Promise<{
+async function setupFlow(config: OobConfig = testConfig): Promise<{
   handlers: AuthRouteHandlers
   clock: FakeClock
   db: NodePgDatabase<Record<string, never>>
@@ -126,7 +137,7 @@ async function setupFlow(): Promise<{
   clientCleanups.push(() => migrated.pool.end())
   const clock = new FakeClock('2026-06-01T10:00:00.000Z')
   const handlers = createAuthRouteHandlers({
-    loadConfig: () => testConfig,
+    loadConfig: () => config,
     db: migrated.db,
     clock,
   })
@@ -510,3 +521,183 @@ describe.skipIf(!hasTestDatabase)(
     })
   },
 )
+
+describe.skipIf(!hasTestDatabase)('AuthSCH belépés schönherzeseknek', () => {
+  function mockAuthschEndpoints(idTokenFactory: () => string): {
+    tokenRequests: URLSearchParams[]
+  } {
+    const tokenRequests: URLSearchParams[] = []
+    activeMocks.push(
+      installFetchMock([
+        {
+          urlPattern: `${AUTHSCH_ISSUER}/.well-known/openid-configuration`,
+          respond: () => ({
+            status: 200,
+            body: {
+              issuer: AUTHSCH_ISSUER,
+              authorization_endpoint: `${AUTHSCH_ISSUER}/site/login`,
+              token_endpoint: `${AUTHSCH_ISSUER}/oauth2/token`,
+            },
+          }),
+        },
+        {
+          method: 'POST',
+          urlPattern: `${AUTHSCH_ISSUER}/oauth2/token`,
+          respond: (request) => {
+            tokenRequests.push(new URLSearchParams(String(request.body)))
+            return {
+              status: 200,
+              body: {
+                access_token: 'authsch-access-token',
+                id_token: idTokenFactory(),
+              },
+            }
+          },
+        },
+      ]),
+    )
+    return { tokenRequests }
+  }
+
+  async function startAuthschLogin(
+    handlers: AuthRouteHandlers,
+    returnTo: string,
+  ): Promise<{
+    response: Response
+    txnCookie: string
+    state: string
+    nonce: string
+  }> {
+    const response = await handlers.authschLogin(
+      new Request(
+        `http://127.0.0.1:3000/api/auth/authsch/login?returnTo=${encodeURIComponent(returnTo)}`,
+      ),
+    )
+    expect(response.status).toBe(302)
+    const txnCookieValue = firstCookieValue(response, 'bss_authsch_txn')
+    const txn = JSON.parse(
+      verifyAndReadOidcTxn(txnCookieValue, authschConfig.authsch!)!,
+    ) as Record<string, string>
+    return {
+      response,
+      txnCookie: `bss_authsch_txn=${txnCookieValue}`,
+      state: txn['state'],
+      nonce: txn['nonce'],
+    }
+  }
+
+  it('az AuthSCH login oldalára irányít a saját callbackkel', async () => {
+    const { handlers } = await setupFlow(authschConfig)
+    mockAuthschEndpoints(() => makeIdToken({}))
+
+    const { response } = await startAuthschLogin(handlers, '/videos')
+
+    const authorizeUrl = new URL(response.headers.get('location')!)
+    expect(`${authorizeUrl.origin}${authorizeUrl.pathname}`).toBe(
+      `${AUTHSCH_ISSUER}/site/login`,
+    )
+    expect(authorizeUrl.searchParams.get('client_id')).toBe('bss-authsch')
+    expect(authorizeUrl.searchParams.get('scope')).toBe('openid profile')
+    expect(authorizeUrl.searchParams.get('redirect_uri')).toBe(
+      'http://127.0.0.1:3000/api/auth/authsch/callback',
+    )
+    expect(authorizeUrl.searchParams.get('nonce')).not.toBe('')
+  })
+
+  it('sikeres belépés után schönherz szintű, névteres sessiont kap', async () => {
+    const { handlers, clock, db } = await setupFlow(authschConfig)
+    let issuedNonce = ''
+    const { tokenRequests } = mockAuthschEndpoints(() =>
+      makeIdToken({
+        iss: AUTHSCH_ISSUER,
+        aud: 'bss-authsch',
+        exp: Math.floor(clock.now().getTime() / 1000) + 600,
+        nonce: issuedNonce,
+        sub: 'e3b0c442-98fc-1c14-9afb-f4c8996fb924',
+        name: 'Schönherz Elek',
+      }),
+    )
+
+    const { txnCookie, state, nonce } = await startAuthschLogin(
+      handlers,
+      '/videos',
+    )
+    issuedNonce = nonce
+
+    const callbackResponse = await handlers.authschCallback(
+      new Request(
+        `http://127.0.0.1:3000/api/auth/authsch/callback?code=authsch-kod&state=${encodeURIComponent(state)}`,
+        { headers: { cookie: txnCookie } },
+      ),
+    )
+
+    expect(callbackResponse.status).toBe(302)
+    expect(callbackResponse.headers.get('location')).toBe('/videos')
+    expect(tokenRequests[0].get('redirect_uri')).toBe(
+      'http://127.0.0.1:3000/api/auth/authsch/callback',
+    )
+    expect(tokenRequests[0].get('client_id')).toBe('bss-authsch')
+    expect(
+      callbackResponse.headers
+        .getSetCookie()
+        .find((cookie) => cookie.startsWith('bss_authsch_txn='))!,
+    ).toContain('Max-Age=0')
+
+    const sessionToken = firstCookieValue(callbackResponse, 'bss_session')
+    const session = await findActiveAuthSession(sessionToken, { clock, db })
+    expect(session).toMatchObject({
+      provider: 'authsch',
+      memberSub: 'authsch:e3b0c442-98fc-1c14-9afb-f4c8996fb924',
+      username: 'Schönherz Elek',
+      groups: [],
+    })
+
+    const me = await handlers.me(
+      new Request('http://127.0.0.1:3000/api/auth/me', {
+        headers: { cookie: `bss_session=${sessionToken}` },
+      }),
+    )
+    expect(JSON.parse(await me.text())).toEqual({
+      level: 'schonherz',
+      sub: 'authsch:e3b0c442-98fc-1c14-9afb-f4c8996fb924',
+      username: 'Schönherz Elek',
+    })
+  })
+
+  it('az Authentik tranzakció cookie-ja nem használható az AuthSCH callbackhez', async () => {
+    const { handlers, clock } = await setupFlow(authschConfig)
+    mockOidcEndpoints(() => makeIdToken(validClaims(clock, {})))
+    const { txnCookie, state } = await loginAndParseTxn(handlers)
+
+    const response = await handlers.authschCallback(
+      new Request(
+        `http://127.0.0.1:3000/api/auth/authsch/callback?code=kod&state=${encodeURIComponent(state)}`,
+        {
+          headers: {
+            cookie: txnCookie.replace('bss_oidc_txn=', 'bss_authsch_txn='),
+          },
+        },
+      ),
+    )
+
+    expect(response.status).toBe(400)
+    expect(await response.text()).toContain('lejárt vagy érvénytelen')
+  })
+
+  it('authsch config nélkül a végpontok nem érhetők el', async () => {
+    const { handlers } = await setupFlow()
+    const mock = installFetchMock([])
+
+    const login = await handlers.authschLogin(
+      new Request('http://127.0.0.1:3000/api/auth/authsch/login'),
+    )
+    const callback = await handlers.authschCallback(
+      new Request('http://127.0.0.1:3000/api/auth/authsch/callback?code=x'),
+    )
+
+    expect(login.status).toBe(404)
+    expect(callback.status).toBe(404)
+    expect(mock.calls()).toHaveLength(0)
+    mock.restore()
+  })
+})

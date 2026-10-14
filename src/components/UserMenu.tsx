@@ -135,7 +135,9 @@ export default function UserMenu({ viewer }: { viewer: ViewerStateDto }) {
             <div className="min-w-0">
               <p className="truncate font-bold text-(--bss-text)">{name}</p>
               <p className="truncate text-xs text-(--bss-text-secondary)">
-                {viewer.username !== null && `${viewer.username} · `}
+                {viewer.username !== null &&
+                  viewer.username !== name &&
+                  `${viewer.username} · `}
                 {LEVEL_LABELS[viewer.level]}
               </p>
             </div>

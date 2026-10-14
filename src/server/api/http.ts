@@ -1,6 +1,8 @@
 import type { CookieSpec } from '#/server/auth/session-cookies.ts'
 import { serializeSetCookie } from '#/server/auth/session-cookies.ts'
 
+export { sanitizeReturnTo } from '#/lib/return-to.ts'
+
 export function escapeHtml(value: string): string {
   return value
     .replaceAll('&', '&amp;')
@@ -34,11 +36,19 @@ export function unauthorizedConfigPage(): Response {
   )
 }
 
-export function authUnavailablePage(): Response {
+export function authUnavailablePage(providerName = 'Authentik'): Response {
   return errorPage(
     503,
     'Bejelentkezés nem elérhető',
-    'A bejelentkezési szolgáltatás (Authentik) most nem érhető el. A publikus oldalak működnek; próbáld újra később.',
+    `A bejelentkezési szolgáltatás (${providerName}) most nem érhető el. A publikus oldalak működnek; próbáld újra később.`,
+  )
+}
+
+export function authschDisabledPage(): Response {
+  return errorPage(
+    404,
+    'AuthSCH belépés nem elérhető',
+    'Ezen a szerveren az AuthSCH belépés nincs beállítva. A BSS tagok az Authentikkel tudnak belépni.',
   )
 }
 
@@ -74,22 +84,6 @@ export function redirectResponse(
     headers.append('set-cookie', serializeSetCookie(cookie))
   }
   return new Response(null, { status: 302, headers })
-}
-
-/** Only a relative, single-level path starting with "/" is allowed (against open redirects). */
-export function sanitizeReturnTo(raw: string | null): string {
-  if (
-    !raw ||
-    !raw.startsWith('/') ||
-    raw.startsWith('//') ||
-    raw.includes('\\')
-  ) {
-    return '/'
-  }
-  if (raw.length > 2048) {
-    return '/'
-  }
-  return raw
 }
 
 export function getRequestOrigin(request: Request): string {

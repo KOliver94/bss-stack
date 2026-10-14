@@ -133,6 +133,10 @@ export async function handleApiRequest(request: Request): Promise<Response> {
       return authHandlers.login(request)
     case '/api/auth/callback':
       return authHandlers.callback(request)
+    case '/api/auth/authsch/login':
+      return authHandlers.authschLogin(request)
+    case '/api/auth/authsch/callback':
+      return authHandlers.authschCallback(request)
     case '/api/auth/logout':
       return authHandlers.logout(request)
     case '/api/auth/me':

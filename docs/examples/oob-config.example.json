@@ -16,6 +16,12 @@
       "alumni": "Öregtag"
     }
   },
+  "authsch": {
+    "issuerUrl": "https://auth.sch.bme.hu",
+    "clientId": "TÖLTSD-KI",
+    "clientSecret": "TÖLTSD-KI-titok-nem-kerülhet-gitbe",
+    "scopes": ["openid", "profile"]
+  },
   "youtube": {
     "oEmbedEndpoint": "https://www.youtube.com/oembed"
   },

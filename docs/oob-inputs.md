@@ -11,16 +11,30 @@ Az alkalmazás három bemenete out-of-band, azaz nem a git repóban érkezik. Hi
   - Authentik OIDC kapcsolat: issuer URL, client id, client secret, scope-ok;
   - claim-leképezés: az Authentik felhasználót a taggal összekötő `sub`;
   - csoportleképezés: Admin, Stúdiós, Stúdiós jelölt, Stúdiós jelölt-jelölt, Vezetőség és Öregtag;
+  - AuthSCH OIDC kapcsolat (`authsch`, lásd lent);
   - médiahost (`media.host`, jelenleg `https://v.bsstudio.hu`);
   - YouTube oEmbed végpont;
   - seed JSON helye.
+
+### AuthSCH belépés 
+
+A schönherzesek [AuthSCH](https://auth.sch.bme.hu)-val
+tudnak belépni. Ha a config tartalmaz `authsch` szekciót, a navbar „Belépés”
+gombja két lehetőséget kínál: BSS tagoknak (Authentik) és schönherzeseknek
+(AuthSCH). Szekció nélkül csak az Authentik belépés létezik.
+
+- `issuerUrl`: `https://auth.sch.bme.hu` (az OIDC discovery innen töltődik);
+- `clientId` / `clientSecret`: az AuthSCH fejlesztői konzolján
+  (`https://auth.sch.bme.hu/console/index`) regisztrált kliens adatai;
+- `scopes`: `["openid", "profile"]` — a `profile` adja a megjelenített nevet.
+- A kliens átirányítási címe: `https://<oldal>/api/auth/authsch/callback`.
 
 ## 2. Helyi titkok
 
 A titkok (pl. Authentik client secret, session titok) kizárólag OOB fájlokban vagy környezeti változókban élnek:
 
 - `.env` (gitignore-olt) — pl. `DATABASE_URL`;
-- a config fájl `clientSecret` mezője.
+- a config fájl `clientSecret` mezői (Authentik és AuthSCH).
 
 Titok soha nem kerül kliensbundle-be: a config csak szerveroldalon töltődik be.
 

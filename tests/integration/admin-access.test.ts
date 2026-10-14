@@ -103,10 +103,11 @@ describe.skipIf(!hasTestDatabase)('BSS-027: guard valódi sessionnel', () => {
 
     const schonherz = await createAuthSession(
       {
-        memberSub: 'sub-admin-sch',
+        memberSub: 'authsch:sub-admin-sch',
         username: 'adminsch',
         groups: [],
         accessToken: null,
+        provider: 'authsch',
       },
       { db },
     )

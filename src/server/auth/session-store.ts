@@ -11,12 +11,15 @@ import {
 
 export type Database = NodePgDatabase<Record<string, never>>
 
+export type AuthProvider = 'authentik' | 'authsch'
+
 export interface AuthSessionRecord {
   id: string
   memberSub: string
   username: string
   groups: string[]
   accessToken: string | null
+  provider: AuthProvider
   createdAt: Date
   expiresAt: Date
 }
@@ -49,6 +52,7 @@ export async function createAuthSession(
     username: string
     groups: string[]
     accessToken: string | null
+    provider?: AuthProvider
   },
   options: {
     db?: Database
@@ -62,6 +66,7 @@ export async function createAuthSession(
   const now = clock.now()
   const expiresAt = new Date(now.getTime() + (options.ttlMs ?? SESSION_TTL_MS))
   const id = hashSessionToken(token)
+  const provider = identity.provider ?? 'authentik'
 
   await database.insert(authSessions).values({
     id,
@@ -69,6 +74,7 @@ export async function createAuthSession(
     username: identity.username,
     groups: identity.groups,
     accessToken: identity.accessToken,
+    provider,
     createdAt: now,
     expiresAt,
   })
@@ -81,6 +87,7 @@ export async function createAuthSession(
       username: identity.username,
       groups: identity.groups,
       accessToken: identity.accessToken,
+      provider,
       createdAt: now,
       expiresAt,
     },
@@ -118,6 +125,7 @@ export async function findActiveAuthSession(
     username: row.username,
     groups: row.groups,
     accessToken: row.accessToken,
+    provider: row.provider,
     createdAt: row.createdAt,
     expiresAt: row.expiresAt,
   }

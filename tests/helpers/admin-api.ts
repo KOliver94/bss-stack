@@ -1,7 +1,7 @@
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres'
 import { SESSION_COOKIE_NAME } from '#/server/auth/session-cookies.ts'
 import { createAuthSession } from '#/server/auth/session-store.ts'
-import type { Database } from '#/server/auth/session-store.ts'
+import type { AuthProvider, Database } from '#/server/auth/session-store.ts'
 import { validateOobConfig } from '#/server/config/oob-schema.ts'
 import { buildRawOobConfig } from './oob-config.ts'
 import { createMigratedTestDatabase } from './test-db.ts'
@@ -104,7 +104,7 @@ export async function setupAdminApiTest(
   const [member, leadership, schonherz] = await Promise.all([
     createSession(db, 'sub-admin-member', 'adminmember', [groups.studio]),
     createSession(db, 'sub-admin-leader', 'adminleader', [groups.leadership]),
-    createSession(db, 'sub-admin-schonherz', 'adminsch', []),
+    createSession(db, 'authsch:sub-admin-schonherz', 'adminsch', [], 'authsch'),
   ])
   return {
     db,
@@ -119,9 +119,10 @@ async function createSession(
   sub: string,
   username: string,
   groups: string[],
+  provider: AuthProvider = 'authentik',
 ): Promise<string> {
   const created = await createAuthSession(
-    { memberSub: sub, username, groups, accessToken: null },
+    { memberSub: sub, username, groups, accessToken: null, provider },
     { db },
   )
   return created.token

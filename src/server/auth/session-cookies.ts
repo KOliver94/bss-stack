@@ -4,10 +4,11 @@ import {
   randomBytes,
   timingSafeEqual,
 } from 'node:crypto'
-import type { OobConfig } from '#/server/config/oob-schema.ts'
+import type { OidcClientConfig } from '#/server/config/oob-schema.ts'
 
 export const SESSION_COOKIE_NAME = 'bss_session'
 export const OIDC_TXN_COOKIE_NAME = 'bss_oidc_txn'
+export const AUTHSCH_TXN_COOKIE_NAME = 'bss_authsch_txn'
 
 /** Role changes take effect within at most an hour: absolute session TTL. */
 export const SESSION_TTL_MS = 60 * 60 * 1000
@@ -73,7 +74,7 @@ export function hashSessionToken(token: string): string {
   return createHash('sha256').update(token).digest('hex')
 }
 
-function txnSigningKey(config: OobConfig['authentik']): Buffer {
+function txnSigningKey(config: OidcClientConfig): Buffer {
   return createHash('sha256')
     .update(`bss-oidc-txn:${config.clientId}:${config.clientSecret}`)
     .digest()
@@ -86,7 +87,7 @@ export interface SignedTxnPayload {
 
 export function signOidcTxn(
   jsonPayload: string,
-  config: OobConfig['authentik'],
+  config: OidcClientConfig,
 ): string {
   const signature = createHmac('sha256', txnSigningKey(config))
     .update(jsonPayload)
@@ -96,7 +97,7 @@ export function signOidcTxn(
 
 export function verifyAndReadOidcTxn(
   cookieValue: string,
-  config: OobConfig['authentik'],
+  config: OidcClientConfig,
 ): string | null {
   const separator = cookieValue.lastIndexOf('.')
   if (separator === -1) {

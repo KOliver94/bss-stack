@@ -10,12 +10,15 @@ export type MembershipStatusKey = (typeof MEMBERSHIP_STATUS_KEYS)[number]
 
 export type SemesterKey = 'spring' | 'autumn'
 
+export interface OidcClientConfig {
+  issuerUrl: string
+  clientId: string
+  clientSecret: string
+  scopes: string[]
+}
+
 export interface OobConfig {
-  authentik: {
-    issuerUrl: string
-    clientId: string
-    clientSecret: string
-    scopes: string[]
+  authentik: OidcClientConfig & {
     claims: {
       sub: string
     }
@@ -28,6 +31,11 @@ export interface OobConfig {
       alumni: string
     }
   }
+  /**
+   * AuthSCH (auth.sch.bme.hu) login for Schönherz viewers. Optional: without
+   * it only the Authentik login exists.
+   */
+  authsch: OidcClientConfig | null
   youtube: {
     oEmbedEndpoint: string
   }
@@ -69,6 +77,58 @@ function requireString(
   }
 }
 
+function isPrivateHttpUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url)
+    if (parsed.protocol !== 'http:') return false
+    return /^(10\.|127\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(
+      parsed.hostname,
+    )
+  } catch {
+    return false
+  }
+}
+
+function validateOidcClient(
+  section: Record<string, unknown>,
+  prefix: string,
+  problems: string[],
+): void {
+  requireString(section, `${prefix}.issuerUrl`, problems)
+  requireString(section, `${prefix}.clientId`, problems)
+  requireString(section, `${prefix}.clientSecret`, problems)
+
+  const issuerUrlValue = section['issuerUrl']
+  if (
+    typeof issuerUrlValue === 'string' &&
+    issuerUrlValue.trim() !== '' &&
+    !issuerUrlValue.startsWith('https://') &&
+    !issuerUrlValue.startsWith('http://localhost') &&
+    !isPrivateHttpUrl(issuerUrlValue)
+  ) {
+    problems.push(
+      `${prefix}.issuerUrl: https:// kezdetű URL vagy lokális http cím kell legyen.`,
+    )
+  }
+
+  if (!Array.isArray(section['scopes']) || section['scopes'].length === 0) {
+    problems.push(
+      `${prefix}.scopes: kötelező nem üres lista (pl. openid, profile).`,
+    )
+  } else if (!section['scopes'].includes('openid')) {
+    problems.push(`${prefix}.scopes: az openid scope kötelező.`)
+  }
+}
+
+function readOidcClient(section: Record<string, unknown>): OidcClientConfig {
+  return {
+    issuerUrl: section['issuerUrl'] as string,
+    clientId: section['clientId'] as string,
+    clientSecret: section['clientSecret'] as string,
+    scopes: section['scopes'] as string[],
+  }
+}
+
 export function validateOobConfig(raw: unknown): OobConfig {
   const problems: string[] = []
 
@@ -98,42 +158,7 @@ export function validateOobConfig(raw: unknown): OobConfig {
   const media = raw.media as Record<string, unknown>
   const seed = raw.seed as Record<string, unknown>
 
-  requireString(authentik, 'authentik.issuerUrl', problems)
-  requireString(authentik, 'authentik.clientId', problems)
-  requireString(authentik, 'authentik.clientSecret', problems)
-
-  const issuerUrlValue = authentik['issuerUrl']
-  const isPrivateHttpUrl = (url: string): boolean => {
-    try {
-      const parsed = new URL(url)
-      if (parsed.protocol !== 'http:') return false
-      // RFC1918 private networks + loopback alternatives (e.g. dev runs on a LAN IP).
-      return /^(10\.|127\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(
-        parsed.hostname,
-      )
-    } catch {
-      return false
-    }
-  }
-  if (
-    typeof issuerUrlValue === 'string' &&
-    issuerUrlValue.trim() !== '' &&
-    !issuerUrlValue.startsWith('https://') &&
-    !issuerUrlValue.startsWith('http://localhost') &&
-    !isPrivateHttpUrl(issuerUrlValue)
-  ) {
-    problems.push(
-      'authentik.issuerUrl: https:// kezdetű URL vagy lokális http cím kell legyen.',
-    )
-  }
-
-  if (!Array.isArray(authentik['scopes']) || authentik['scopes'].length === 0) {
-    problems.push(
-      'authentik.scopes: kötelező nem üres lista (pl. openid, profile).',
-    )
-  } else if (!authentik['scopes'].includes('openid')) {
-    problems.push('authentik.scopes: az openid scope kötelező.')
-  }
+  validateOidcClient(authentik, 'authentik', problems)
 
   if (!isRecord(authentik['claims'])) {
     problems.push('authentik.claims: kötelező szekció hiányzik.')
@@ -159,6 +184,15 @@ export function validateOobConfig(raw: unknown): OobConfig {
     const groupValues = Object.values(groups)
     if (new Set(groupValues).size !== groupValues.length) {
       problems.push('authentik.groups: minden csoportnévnek különböznie kell.')
+    }
+  }
+
+  const authsch = raw.authsch
+  if (authsch !== undefined && authsch !== null) {
+    if (!isRecord(authsch)) {
+      problems.push('authsch: objektum kell legyen (vagy hagyd el).')
+    } else {
+      validateOidcClient(authsch, 'authsch', problems)
     }
   }
 
@@ -213,13 +247,11 @@ export function validateOobConfig(raw: unknown): OobConfig {
 
   return {
     authentik: {
-      issuerUrl: authentik['issuerUrl'] as string,
-      clientId: authentik['clientId'] as string,
-      clientSecret: authentik['clientSecret'] as string,
-      scopes: authentik['scopes'] as string[],
+      ...readOidcClient(authentik),
       claims: claims as unknown as OobConfig['authentik']['claims'],
       groups: groups as unknown as OobConfig['authentik']['groups'],
     },
+    authsch: isRecord(authsch) ? readOidcClient(authsch) : null,
     youtube: {
       oEmbedEndpoint: youtube['oEmbedEndpoint'] as string,
     },

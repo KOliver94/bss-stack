@@ -71,6 +71,11 @@ export const liveStatusEnum = pgEnum('live_status', [
 
 export const slugEntityTypeEnum = pgEnum('slug_entity_type', ['video', 'event'])
 
+export const authProviderEnum = pgEnum('auth_provider', [
+  'authentik',
+  'authsch',
+])
+
 export const authSessions = pgTable(
   'auth_sessions',
   {
@@ -79,6 +84,7 @@ export const authSessions = pgTable(
     username: varchar('username', { length: 200 }).notNull(),
     groups: jsonb('groups').$type<string[]>().notNull().default([]),
     accessToken: text('access_token'),
+    provider: authProviderEnum('provider').notNull().default('authentik'),
     createdAt: timestamp('created_at', { withTimezone: true })
       .notNull()
       .defaultNow(),

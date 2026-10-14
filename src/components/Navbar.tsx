@@ -178,16 +178,16 @@ function NavLink({
   )
 }
 
-/** Logs in, returning to the current page; logout lives in the profile menu. */
+/** Opens the login page, returning to the current page afterwards. */
 function LoginButton() {
   const location = useLocation()
-  const returnTo = `${location.pathname}${location.searchStr}`
   return (
-    <a
-      href={`/api/auth/login?returnTo=${encodeURIComponent(returnTo)}`}
+    <Link
+      to="/login"
+      search={{ returnTo: `${location.pathname}${location.searchStr}` }}
       className="nav-link font-bold text-(--orange)"
     >
       Belépés
-    </a>
+    </Link>
   )
 }

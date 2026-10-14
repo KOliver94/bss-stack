@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { loadArchiveMembersServer } from '#/server/pages/member-archive-fn.ts'
 import type { ArchiveKind, ArchiveMemberCard } from '#/server/pages/members.ts'
 import { EmptyState } from '#/components/PageStates.tsx'
-import { memberSlug } from '#/lib/member-slug.ts'
+import { MemberCard } from '#/components/MemberCard.tsx'
 
 export const ARCHIVE_ROUTES = {
   archived: '/members/archived',
@@ -108,24 +108,7 @@ function MemberCardGrid({ members }: { members: Array<ArchiveMemberCard> }) {
   return (
     <div className="mt-4 flex flex-wrap justify-center gap-4">
       {members.map((member) => (
-        <Link
-          key={member.sub}
-          to="/members/$slug"
-          params={{ slug: memberSlug(member) }}
-          className="flex w-[178px] flex-col items-center border border-(--card-border) bg-(--members-card-bg) p-3 text-center shadow-[0_2px_2px_rgba(0,0,0,0.2)]"
-        >
-          <img
-            src={member.avatarUrl ?? '/default-avatar.png'}
-            alt={member.fullName}
-            className="h-[178px] w-[178px] overflow-hidden object-cover"
-          />
-          <p className="text-lg font-bold text-(--bss-text-secondary)">
-            {member.fullName}
-          </p>
-          {member.nickname !== null && (
-            <p className="text-(--bss-text-secondary)">„{member.nickname}”</p>
-          )}
-        </Link>
+        <MemberCard key={member.sub} member={member} />
       ))}
     </div>
   )

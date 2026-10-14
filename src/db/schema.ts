@@ -384,7 +384,6 @@ export const liveStreams = pgTable(
     id: uuid().primaryKey().defaultRandom(),
     youtubeVideoId: varchar('youtube_video_id', { length: 64 }).notNull(),
     startsAt: timestamp('starts_at', { withTimezone: true }).notNull(),
-    endsAt: timestamp('ends_at', { withTimezone: true }).notNull(),
     status: liveStatusEnum('status').notNull().default('scheduled'),
     activationError: text('activation_error'),
     activatedAt: timestamp('activated_at', { withTimezone: true }),
@@ -401,10 +400,6 @@ export const liveStreams = pgTable(
   },
   (table) => [
     index('live_streams_status_starts_idx').on(table.status, table.startsAt),
-    check(
-      'live_streams_end_after_start_check',
-      sql`${table.endsAt} > ${table.startsAt}`,
-    ),
   ],
 )
 

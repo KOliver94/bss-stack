@@ -161,8 +161,13 @@ export function startBackgroundRunner(
     registry.register(job)
   }
 
+  // One lock manager (one connection) shared by every run; a new one per run
+  // would leave a connection open each time.
+  let lockManager = deps.lockManager
+
   const executeAndMark = async (job: JobDefinition): Promise<JobRunRecord> => {
-    const record = await runJobWithLock(job, deps)
+    lockManager ??= (await import('./locks.ts')).createPgLockManager()
+    const record = await runJobWithLock(job, { ...deps, lockManager })
     registry.setLastFinishedAt(job.name, record.finishedAt)
     return record
   }
@@ -197,6 +202,9 @@ export function startBackgroundRunner(
       if (timer !== null) {
         clearTimeout(timer)
         timer = null
+      }
+      if (deps.lockManager === undefined) {
+        void lockManager?.close?.()
       }
     },
   }

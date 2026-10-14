@@ -8,6 +8,7 @@ import type { BackgroundRunnerHandle } from '#/server/jobs/runner.ts'
 import { securityHeaders, robotsTxt } from '#/server/http/security-headers.ts'
 import { getSitemapEntries, sitemapXml } from '#/server/pages/sitemap.ts'
 import { getDefaultDb } from '#/server/auth/session-store.ts'
+import { createLiveTransitionJob } from '#/server/homepage/live.ts'
 
 const ssrHandler = createStartHandler(defaultStreamHandler)
 
@@ -18,7 +19,9 @@ let runnerHandle: BackgroundRunnerHandle | null = null
 function ensureBackgroundRunner(): void {
   if (runnerHandle === null) {
     try {
-      runnerHandle = startBackgroundRunner()
+      runnerHandle = startBackgroundRunner({}, [
+        createLiveTransitionJob({ db: getDefaultDb }),
+      ])
     } catch (error) {
       console.error('[jobs] A háttérfutató indítása nem sikerült:', error)
     }
@@ -68,8 +71,10 @@ export default {
       // 404 → the request continues to the Vite dev middleware.
       return new Response(null, { status: 404 })
     }
+    // Started by the first request of any kind, so scheduled lives go live
+    // even if nobody touches the API after a restart.
+    ensureBackgroundRunner()
     if (isApiPath(pathname)) {
-      ensureBackgroundRunner()
       return handleApiRequest(request)
     }
     if (pathname === '/robots.txt') {

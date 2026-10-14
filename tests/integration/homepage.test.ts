@@ -5,10 +5,9 @@ import {
   createLiveSchedule,
   deleteScheduledLive,
   endLiveNow,
-  rescheduleLive,
   startLiveNow,
   transitionLiveStates,
-  LiveOverlapError,
+  updateScheduledLive,
 } from '#/server/homepage/live.ts'
 import { setHighlightedVideo } from '#/server/homepage/highlight.ts'
 import { getAboutPageVideos, setAboutVideos } from '#/server/homepage/about.ts'
@@ -132,7 +131,6 @@ describe.skipIf(!hasTestDatabase)('BSS-017: live ütemezés', () => {
         {
           youtubeUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
           startsAt: new Date('2026-08-01T18:00:00.000Z'),
-          endsAt: new Date('2026-08-01T20:00:00.000Z'),
         },
       )
       expect(stream.youtubeVideoId).toBe('dQw4w9WgXcQ')
@@ -145,7 +143,6 @@ describe.skipIf(!hasTestDatabase)('BSS-017: live ütemezés', () => {
           {
             youtubeUrl: 'https://youtu.be/dQw4w9WgXcQ',
             startsAt: new Date('2026-09-01T18:00:00.000Z'),
-            endsAt: new Date('2026-09-01T20:00:00.000Z'),
           },
         ),
       ).rejects.toBeInstanceOf(ForbiddenError)
@@ -154,49 +151,47 @@ describe.skipIf(!hasTestDatabase)('BSS-017: live ütemezés', () => {
     }
   })
 
-  it('átfedő időablak nem menthető — alkalmazás és DB korlát egyaránt', async () => {
+  it('ütemezett live szerkeszthető (videó és kezdés); több ütemezés is menthető', async () => {
     const db = await setupDb()
     const mock = installFetchMock(okOembedRoutes)
     try {
-      await createLiveSchedule(
+      const first = await createLiveSchedule(
         db,
         { viewer: leaderViewer, clock },
         {
           youtubeUrl: 'https://youtu.be/aaaaaaaaaaa',
           startsAt: new Date('2026-08-02T18:00:00.000Z'),
-          endsAt: new Date('2026-08-02T21:00:00.000Z'),
+        },
+      )
+      // Végidő nélkül nincs átfedés: a következő ütemezés is menthető.
+      await createLiveSchedule(
+        db,
+        { viewer: leaderViewer, clock },
+        {
+          youtubeUrl: 'https://youtu.be/bbbbbbbbbbb',
+          startsAt: new Date('2026-08-02T19:00:00.000Z'),
         },
       )
 
-      // Teljes átfedés:
-      await expect(
-        createLiveSchedule(
-          db,
-          { viewer: leaderViewer, clock },
-          {
-            youtubeUrl: 'https://youtu.be/bbbbbbbbbbb',
-            startsAt: new Date('2026-08-02T19:00:00.000Z'),
-            endsAt: new Date('2026-08-02T22:00:00.000Z'),
-          },
-        ),
-      ).rejects.toBeInstanceOf(LiveOverlapError)
+      const edited = await updateScheduledLive(
+        db,
+        { viewer: leaderViewer, clock },
+        first.id,
+        {
+          youtubeUrl: 'https://www.youtube.com/watch?v=ccccccccccc',
+          startsAt: new Date('2026-08-03T18:00:00.000Z'),
+        },
+      )
+      expect(edited.youtubeVideoId).toBe('ccccccccccc')
+      expect(edited.startsAt.toISOString()).toBe('2026-08-03T18:00:00.000Z')
+      expect(edited.status).toBe('scheduled')
 
-      // A DB EXCLUDE korlát is tiltja (alkalmazásellenőrzés megkerülésével):
-      try {
-        await db.insert(liveStreams).values({
-          youtubeVideoId: 'ccccccccccc',
-          startsAt: new Date('2026-08-02T20:30:00.000Z'),
-          endsAt: new Date('2026-08-02T23:00:00.000Z'),
-        })
-        throw new Error('átfedő live beszúródott')
-      } catch (error) {
-        const err = error as {
-          constraint?: string
-          cause?: { constraint?: string }
-        }
-        const constraint = err.constraint ?? err.cause?.constraint
-        expect(constraint).toBe('live_streams_no_overlap_excl')
-      }
+      await expect(
+        updateScheduledLive(db, { viewer: schonherzViewer, clock }, first.id, {
+          youtubeUrl: 'https://youtu.be/ddddddddddd',
+          startsAt: new Date('2026-08-03T18:00:00.000Z'),
+        }),
+      ).rejects.toBeInstanceOf(ForbiddenError)
     } finally {
       mock.restore()
     }
@@ -213,7 +208,6 @@ describe.skipIf(!hasTestDatabase)('BSS-017: live ütemezés', () => {
         {
           youtubeUrl: 'https://youtu.be/ddddddddddd',
           startsAt: new Date('2026-08-03T18:00:00.000Z'),
-          endsAt: new Date('2026-08-03T20:00:00.000Z'),
         },
       )
     } finally {
@@ -269,7 +263,6 @@ describe.skipIf(!hasTestDatabase)('BSS-017: live ütemezés', () => {
         {
           youtubeUrl: 'https://youtu.be/eeeeeeeeeee',
           startsAt: new Date('2026-08-04T18:00:00.000Z'),
-          endsAt: new Date('2026-08-04T20:00:00.000Z'),
         },
       )
     } finally {
@@ -284,29 +277,27 @@ describe.skipIf(!hasTestDatabase)('BSS-017: live ütemezés', () => {
     expect(ended?.endedAt).not.toBeNull()
 
     await expect(
-      rescheduleLive(db, { viewer: leaderViewer, clock }, stream.id, {
+      updateScheduledLive(db, { viewer: leaderViewer, clock }, stream.id, {
+        youtubeUrl: 'https://youtu.be/eeeeeeeeeee',
         startsAt: new Date('2027-01-01T10:00:00.000Z'),
-        endsAt: new Date('2027-01-01T12:00:00.000Z'),
       }),
-    ).rejects.toThrow(/másolatként/)
+    ).rejects.toThrow(/Csak ütemezett/)
 
     await expect(
       deleteScheduledLive(db, { viewer: leaderViewer, clock }, stream.id),
     ).rejects.toThrow(/Csak ütemezett/)
   })
 
-  it('háttérfeladat aktiválja a lejárt ütemezést és bezárja a lefutottat — system audit', async () => {
+  it('háttérfeladat aktiválja a lejárt ütemezést; az előzőleg futó live lezárul — system audit', async () => {
     const db = await setupDb()
     await db.insert(liveStreams).values([
       {
         youtubeVideoId: 'fffffffffff',
         startsAt: new Date('2026-07-01T11:00:00.000Z'),
-        endsAt: new Date('2026-07-01T15:00:00.000Z'),
       },
       {
         youtubeVideoId: 'ggggggggggg',
         startsAt: new Date('2026-07-01T09:00:00.000Z'),
-        endsAt: new Date('2026-07-01T10:00:00.000Z'),
         status: 'active',
         activatedAt: new Date('2026-07-01T09:00:00.000Z'),
       },
@@ -314,12 +305,20 @@ describe.skipIf(!hasTestDatabase)('BSS-017: live ütemezés', () => {
 
     const result = await transitionLiveStates(db, { now: clock.now() })
     expect(result.activated).toBe(1)
-    expect(result.ended).toBeGreaterThanOrEqual(1)
 
     const streams = await db.select().from(liveStreams)
     const byId = new Map(streams.map((s) => [s.youtubeVideoId, s]))
     expect(byId.get('fffffffffff')?.status).toBe('active')
     expect(byId.get('ggggggggggg')?.status).toBe('ended')
+
+    // A futó live-ot a háttérfeladat magától nem zárja le.
+    const later = new Date(clock.now().getTime() + 24 * 60 * 60 * 1000)
+    expect((await transitionLiveStates(db, { now: later })).activated).toBe(0)
+    const stillRunning = await db
+      .select()
+      .from(liveStreams)
+      .where(eq(liveStreams.youtubeVideoId, 'fffffffffff'))
+    expect(stillRunning.at(0)?.status).toBe('active')
 
     const audits = await db
       .select()
@@ -387,7 +386,6 @@ describe.skipIf(!hasTestDatabase)(
       await db.insert(liveStreams).values({
         youtubeVideoId: 'hhhhhhhhhhh',
         startsAt: new Date('2026-07-01T11:00:00.000Z'),
-        endsAt: new Date('2026-07-01T13:00:00.000Z'),
         status: 'active',
         activatedAt: new Date('2026-07-01T11:00:00.000Z'),
       })
@@ -404,7 +402,6 @@ describe.skipIf(!hasTestDatabase)(
       await db.insert(liveStreams).values({
         youtubeVideoId: 'iiiiiiiiiii',
         startsAt: soonStart,
-        endsAt: new Date(soonStart.getTime() + 2 * 60 * 60 * 1000),
       })
 
       const upcoming = await getUpcomingLive(db, { now: clock.now() })
@@ -414,7 +411,6 @@ describe.skipIf(!hasTestDatabase)(
       await db.insert(liveStreams).values({
         youtubeVideoId: 'jjjjjjjjjjj',
         startsAt: farStart,
-        endsAt: new Date(farStart.getTime() + 2 * 60 * 60 * 1000),
       })
 
       const state = await getHomepageState(db, { now: clock.now() })

@@ -76,3 +76,38 @@ export function formatEventIntervalHu(
   }
   return `${formatCalendarDateHu(startDate)} – ${formatCalendarDateHu(endDate)}`
 }
+
+/** `datetime-local` field value (`YYYY-MM-DDTHH:mm`) in Europe/Budapest time. */
+export function toBudapestDatetimeLocal(date: Date): string {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Europe/Budapest',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(date)
+  const value = (type: string) =>
+    parts.find((part) => part.type === type)?.value ?? ''
+  return `${value('year')}-${value('month')}-${value('day')}T${value('hour')}:${value('minute')}`
+}
+
+/**
+ * Reads a `datetime-local` value as Europe/Budapest time and returns the ISO
+ * instant, following the summer/winter offset of that date; '' when invalid.
+ */
+export function budapestDatetimeLocalToIso(value: string): string {
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value)) {
+    return ''
+  }
+  const wallClockAsUtc = new Date(`${value}:00Z`)
+  const offsetAt = (instant: Date) =>
+    new Date(`${toBudapestDatetimeLocal(instant)}:00Z`).getTime() -
+    instant.getTime()
+  // The second pass corrects the guess when the offset differs across the
+  // first estimate (dates near the DST switch).
+  let instant = new Date(wallClockAsUtc.getTime() - offsetAt(wallClockAsUtc))
+  instant = new Date(wallClockAsUtc.getTime() - offsetAt(instant))
+  return instant.toISOString()
+}

@@ -2,6 +2,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { createServerFn } from '@tanstack/react-start'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
+import { ExternalLink } from 'lucide-react'
 import { getDefaultDb } from '#/server/auth/session-store.ts'
 import { getHomepageAdminData } from '#/server/admin/homepage-admin.ts'
 import { fetchViewerState } from '#/server/pages/viewer-fn.ts'
@@ -21,7 +22,11 @@ import {
   FILTER_LABEL_CLASS,
 } from '#/components/admin/SearchSelect.tsx'
 import { postJson } from '#/lib/admin-api.ts'
-import { formatAdminDateTimeHu } from '#/lib/format-date.ts'
+import {
+  budapestDatetimeLocalToIso,
+  formatAdminDateTimeHu,
+  toBudapestDatetimeLocal,
+} from '#/lib/format-date.ts'
 import { youtubeUrlWarning } from '#/lib/youtube-url.ts'
 import type { SearchSelectOption } from '#/components/admin/SearchSelect.tsx'
 
@@ -180,6 +185,68 @@ function HighlightSection({
   )
 }
 
+type LiveEntry = HomepageAdminPayload['live'][number]
+
+function youtubeWatchUrl(youtubeVideoId: string): string {
+  return `https://www.youtube.com/watch?v=${youtubeVideoId}`
+}
+
+function YoutubeLink({ youtubeVideoId }: { youtubeVideoId: string }) {
+  return (
+    <a
+      href={youtubeWatchUrl(youtubeVideoId)}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="inline-flex items-center gap-1 font-bold underline-offset-2 hover:text-(--orange) hover:underline"
+    >
+      <ExternalLink aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
+      {youtubeVideoId}
+    </a>
+  )
+}
+
+/** YouTube URL + start time fields, shared by scheduling and editing. */
+function LiveFields({
+  youtubeUrl,
+  onYoutubeUrlChange,
+  startsAt,
+  onStartsAtChange,
+}: {
+  youtubeUrl: string
+  onYoutubeUrlChange: (value: string) => void
+  startsAt: string
+  onStartsAtChange: (value: string) => void
+}) {
+  // The server uses the same parser before the oEmbed check.
+  const urlWarning = youtubeUrlWarning(youtubeUrl)
+  return (
+    <>
+      <div className="md:col-span-2">
+        <AdminTextField
+          label="YouTube URL"
+          value={youtubeUrl}
+          onChange={onYoutubeUrlChange}
+          required
+          hint="watch/live/youtu.be/embed formák; a mentés oEmbed ellenőrzéssel jár."
+        />
+        {urlWarning !== null && (
+          <p role="alert" className="mt-1 text-xs text-(--orange)">
+            {urlWarning}
+          </p>
+        )}
+      </div>
+      <AdminTextField
+        label="Kezdési idő"
+        type="datetime-local"
+        value={startsAt}
+        onChange={onStartsAtChange}
+        required
+        hint="A kezdési időben magától elindul (legfeljebb egy perc késéssel), és a „Lezárás most” gombig fut."
+      />
+    </>
+  )
+}
+
 function LiveSection({
   data,
   onChanged,
@@ -189,7 +256,7 @@ function LiveSection({
 }) {
   const [youtubeUrl, setYoutubeUrl] = useState('')
   const [startsAt, setStartsAt] = useState('')
-  const [endsAt, setEndsAt] = useState('')
+  const [editingId, setEditingId] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [problems, setProblems] = useState<string[]>([])
   const [message, setMessage] = useState<string | null>(null)
@@ -228,26 +295,16 @@ function LiveSection({
   function create() {
     void call(
       '/api/admin/live',
-      {
-        youtubeUrl,
-        startsAt:
-          startsAt === '' ? '' : new Date(`${startsAt}:00+02:00`).toISOString(),
-        endsAt:
-          endsAt === '' ? '' : new Date(`${endsAt}:00+02:00`).toISOString(),
-      },
+      { youtubeUrl, startsAt: budapestDatetimeLocalToIso(startsAt) },
       'Live ütemezve.',
     ).then((ok) => {
       if (ok) {
         setYoutubeUrl('')
         setStartsAt('')
-        setEndsAt('')
       }
     })
   }
 
-  // The server uses the same parser before the oEmbed check,
-
-  const urlWarning = youtubeUrlWarning(youtubeUrl)
   const activeOrScheduled = data.live.filter((live) => live.status !== 'ended')
   const ended = data.live.filter((live) => live.status === 'ended')
 
@@ -262,39 +319,16 @@ function LiveSection({
         }}
         className="grid gap-3 md:grid-cols-2"
       >
-        <div className="md:col-span-2">
-          <AdminTextField
-            label="YouTube URL"
-            value={youtubeUrl}
-            onChange={setYoutubeUrl}
-            required
-            hint="watch/live/youtu.be/embed formák; a mentés oEmbed ellenőrzéssel jár."
-          />
-          {urlWarning !== null && (
-            <p role="alert" className="mt-1 text-xs text-(--orange)">
-              {urlWarning}
-            </p>
-          )}
-        </div>
-        <AdminTextField
-          label="Kezdési idő"
-          type="datetime-local"
-          value={startsAt}
-          onChange={setStartsAt}
-          required
+        <LiveFields
+          youtubeUrl={youtubeUrl}
+          onYoutubeUrlChange={setYoutubeUrl}
+          startsAt={startsAt}
+          onStartsAtChange={setStartsAt}
         />
-        <AdminTextField
-          label="Befejezési idő"
-          type="datetime-local"
-          value={endsAt}
-          onChange={setEndsAt}
-          required
-          hint="Átfedő live nem menthető."
-        />
-        <div>
+        <div className="self-start md:mt-6">
           <AdminPrimaryButton
             onClick={() => create()}
-            disabled={busy || urlWarning !== null}
+            disabled={busy || youtubeUrlWarning(youtubeUrl) !== null}
           >
             Ütemezés
           </AdminPrimaryButton>
@@ -312,13 +346,13 @@ function LiveSection({
             className="rounded border border-(--nav-border-b) p-3 text-sm"
           >
             <div className="flex flex-wrap items-center gap-2">
-              <span className="font-bold">{live.youtubeVideoId}</span>
+              <YoutubeLink youtubeVideoId={live.youtubeVideoId} />
               <span className="rounded bg-(--nav-search-bg) px-2 py-0.5 text-xs font-bold text-(--bss-text-secondary)">
                 {live.status === 'active' ? 'Fut' : 'Ütemezett'}
               </span>
               <span className="text-xs text-(--bss-text-secondary)">
-                {formatAdminDateTimeHu(live.startsAt)} –{' '}
-                {formatAdminDateTimeHu(live.endsAt)}
+                {live.status === 'active' ? 'Indult: ' : 'Kezdés: '}
+                {formatAdminDateTimeHu(live.startsAt)}
               </span>
               {live.activationError !== null && (
                 <span className="text-xs text-red-500">
@@ -326,40 +360,65 @@ function LiveSection({
                 </span>
               )}
             </div>
-            <div className="mt-2 flex flex-wrap gap-2">
-              {live.status === 'scheduled' && (
-                <>
+            {editingId === live.id ? (
+              <LiveEditForm
+                live={live}
+                busy={busy}
+                onCancel={() => setEditingId(null)}
+                onSave={(body) =>
+                  void call(
+                    `/api/admin/live/${live.id}/update`,
+                    body,
+                    'Live módosítva.',
+                  ).then((ok) => {
+                    if (ok) {
+                      setEditingId(null)
+                    }
+                  })
+                }
+              />
+            ) : (
+              <div className="mt-2 flex flex-wrap gap-2">
+                {live.status === 'scheduled' && (
+                  <>
+                    <AdminSecondaryButton
+                      disabled={busy}
+                      onClick={() => setEditingId(live.id)}
+                    >
+                      Szerkesztés
+                    </AdminSecondaryButton>
+                    <AdminSecondaryButton
+                      disabled={busy}
+                      onClick={() =>
+                        void call(`/api/admin/live/${live.id}/start_now`, {})
+                      }
+                    >
+                      Indítás most
+                    </AdminSecondaryButton>
+                    <AdminSecondaryButton
+                      disabled={busy}
+                      confirm="Biztosan törlöd az ütemezett live-ot?"
+                      onClick={() =>
+                        void call(`/api/admin/live/${live.id}/delete`, {})
+                      }
+                    >
+                      Törlés
+                    </AdminSecondaryButton>
+                  </>
+                )}
+                {live.status === 'active' && (
                   <AdminSecondaryButton
                     disabled={busy}
+                    confirm="Biztosan lezárod a futó live-ot?"
                     onClick={() =>
-                      void call(`/api/admin/live/${live.id}/start_now`, {})
+                      void call(`/api/admin/live/${live.id}/end_now`, {})
                     }
                   >
-                    Indítás most
+                    Lezárás most
                   </AdminSecondaryButton>
-                  <AdminSecondaryButton
-                    disabled={busy}
-                    confirm="Biztosan törlöd az ütemezett live-ot?"
-                    onClick={() =>
-                      void call(`/api/admin/live/${live.id}/delete`, {})
-                    }
-                  >
-                    Törlés
-                  </AdminSecondaryButton>
-                </>
-              )}
-              {live.status === 'active' && (
-                <AdminSecondaryButton
-                  disabled={busy}
-                  confirm="Biztosan lezárod a futó live-ot?"
-                  onClick={() =>
-                    void call(`/api/admin/live/${live.id}/end_now`, {})
-                  }
-                >
-                  Lezárás most
-                </AdminSecondaryButton>
-              )}
-            </div>
+                )}
+              </div>
+            )}
           </div>
         ))
       )}
@@ -367,13 +426,15 @@ function LiveSection({
       {ended.length > 0 && (
         <details>
           <summary className="cursor-pointer text-sm font-bold text-(--bss-text-secondary)">
-            Befejezett live előzmény ({ended.length})
+            Legutóbbi befejezett live-ok ({ended.length})
           </summary>
           <ul className="mt-2 list-inside list-disc text-sm">
             {ended.map((live) => (
               <li key={live.id}>
-                {live.youtubeVideoId} · {formatAdminDateTimeHu(live.startsAt)} –{' '}
-                {formatAdminDateTimeHu(live.endsAt)}
+                <YoutubeLink youtubeVideoId={live.youtubeVideoId} /> ·{' '}
+                {formatAdminDateTimeHu(live.startsAt)}
+                {live.endedAt !== null &&
+                  ` – ${formatAdminDateTimeHu(live.endedAt)}`}
               </li>
             ))}
           </ul>
@@ -384,6 +445,57 @@ function LiveSection({
       {problems.length > 0 && <ValidationProblems problems={problems} />}
       {message !== null && <FormMessage>{message}</FormMessage>}
     </section>
+  )
+}
+
+function LiveEditForm({
+  live,
+  busy,
+  onCancel,
+  onSave,
+}: {
+  live: LiveEntry
+  busy: boolean
+  onCancel: () => void
+  onSave: (body: { youtubeUrl: string; startsAt: string }) => void
+}) {
+  const [youtubeUrl, setYoutubeUrl] = useState(
+    youtubeWatchUrl(live.youtubeVideoId),
+  )
+  const [startsAt, setStartsAt] = useState(
+    toBudapestDatetimeLocal(live.startsAt),
+  )
+
+  function save() {
+    onSave({ youtubeUrl, startsAt: budapestDatetimeLocalToIso(startsAt) })
+  }
+
+  return (
+    <form
+      onSubmit={(event) => {
+        event.preventDefault()
+        save()
+      }}
+      className="mt-3 grid gap-3 md:grid-cols-2"
+    >
+      <LiveFields
+        youtubeUrl={youtubeUrl}
+        onYoutubeUrlChange={setYoutubeUrl}
+        startsAt={startsAt}
+        onStartsAtChange={setStartsAt}
+      />
+      <div className="flex gap-2 self-start md:mt-6">
+        <AdminPrimaryButton
+          onClick={() => save()}
+          disabled={busy || youtubeUrlWarning(youtubeUrl) !== null}
+        >
+          Mentés
+        </AdminPrimaryButton>
+        <AdminSecondaryButton disabled={busy} onClick={onCancel}>
+          Mégse
+        </AdminSecondaryButton>
+      </div>
+    </form>
   )
 }
 

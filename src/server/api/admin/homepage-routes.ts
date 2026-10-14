@@ -9,8 +9,8 @@ import {
   createLiveSchedule,
   deleteScheduledLive,
   endLiveNow,
-  rescheduleLive,
   startLiveNow,
+  updateScheduledLive,
 } from '#/server/homepage/live.ts'
 import { ABOUT_VIDEO_LIMIT, setAboutVideos } from '#/server/homepage/about.ts'
 import { setHighlightedVideo } from '#/server/homepage/highlight.ts'
@@ -98,7 +98,30 @@ export async function handleAdminHighlightRoute(
   })
 }
 
-const LIVE_ACTION_PATTERN = /^(reschedule|start_now|end_now|delete)$/
+const LIVE_ACTION_PATTERN = /^(update|start_now|end_now|delete)$/
+
+/** Live create/edit body; the YouTube URL is checked early with a Hungarian message (oEmbed), the domain re-checks it on save. */
+async function readLiveInput(
+  request: Request,
+  deps: AdminHomepageRouteDeps,
+): Promise<{ youtubeUrl: string; startsAt: Date }> {
+  const body = await readJsonBody(request)
+  const youtubeUrl =
+    typeof body['youtubeUrl'] === 'string' ? body['youtubeUrl'] : ''
+  const startsAt = parseDate(body['startsAt'], 'Kezdési idő')
+  const youtubeCheck = await validateYoutubeVideo(
+    youtubeUrl,
+    {
+      oEmbedEndpoint:
+        deps.config?.youtube.oEmbedEndpoint ?? 'https://www.youtube.com/oembed',
+    },
+    { fetchImpl: deps.fetchImpl },
+  )
+  if (!youtubeCheck.ok || youtubeCheck.videoId === null) {
+    throw validation(youtubeCheck.problems)
+  }
+  return { youtubeUrl, startsAt }
+}
 
 export async function handleAdminLiveRoutes(
   request: Request,
@@ -117,30 +140,8 @@ export async function handleAdminLiveRoutes(
 
     if (action === undefined) {
       // Create a new schedule.
-      const body = await readJsonBody(request)
-      const youtubeUrl =
-        typeof body['youtubeUrl'] === 'string' ? body['youtubeUrl'] : ''
-      const startsAt = parseDate(body['startsAt'], 'Kezdési idő')
-      const endsAt = parseDate(body['endsAt'], 'Befejezési idő')
-      // Early YouTube validation with a Hungarian error message; the domain
-      // re-checks it on save (oEmbed).
-      const youtubeCheck = await validateYoutubeVideo(
-        youtubeUrl,
-        {
-          oEmbedEndpoint:
-            deps.config?.youtube.oEmbedEndpoint ??
-            'https://www.youtube.com/oembed',
-        },
-        { fetchImpl: deps.fetchImpl },
-      )
-      if (!youtubeCheck.ok || youtubeCheck.videoId === null) {
-        throw validation(youtubeCheck.problems)
-      }
-      const row = await createLiveSchedule(database, liveDeps, {
-        youtubeUrl,
-        startsAt,
-        endsAt,
-      })
+      const input = await readLiveInput(request, deps)
+      const row = await createLiveSchedule(database, liveDeps, input)
       return jsonResponse(200, { ok: true, id: row.id })
     }
 
@@ -150,14 +151,10 @@ export async function handleAdminLiveRoutes(
     if (!LIVE_ACTION_PATTERN.test(action)) {
       return jsonResponse(404, { error: 'not_found' })
     }
-    const body = action === 'reschedule' ? await readJsonBody(request) : {}
-
     switch (action) {
-      case 'reschedule': {
-        await rescheduleLive(database, liveDeps, id, {
-          startsAt: parseDate(body['startsAt'], 'Kezdési idő'),
-          endsAt: parseDate(body['endsAt'], 'Befejezési idő'),
-        })
+      case 'update': {
+        const input = await readLiveInput(request, deps)
+        await updateScheduledLive(database, liveDeps, id, input)
         return jsonResponse(200, { ok: true })
       }
       case 'start_now': {

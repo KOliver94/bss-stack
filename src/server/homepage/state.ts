@@ -96,7 +96,6 @@ export async function getHomepageState(
       and(
         sql`${liveStreams.status} = 'active'`,
         lte(liveStreams.startsAt, now),
-        gte(liveStreams.endsAt, now),
       ),
     )
     .orderBy(desc(liveStreams.activatedAt))

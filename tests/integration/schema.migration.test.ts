@@ -106,26 +106,4 @@ describe.skipIf(!hasTestDatabase)('új adatbázisséma és migrációs alap', ()
       await client.end()
     }
   }, 30_000)
-
-  it('átfedő live időablak nem menthető adatbázis-szinten', async () => {
-    const { client } = await createMigratedDatabase()
-    try {
-      await client.query(
-        "INSERT INTO live_streams (youtube_video_id, starts_at, ends_at) VALUES ('abc1','2026-06-01 10:00+00','2026-06-01 12:00+00')",
-      )
-
-      await expect(
-        client.query(
-          "INSERT INTO live_streams (youtube_video_id, starts_at, ends_at) VALUES ('abc2','2026-06-01 11:00+00','2026-06-01 13:00+00')",
-        ),
-      ).rejects.toThrow()
-
-      const nonOverlapping = await client.query(
-        "INSERT INTO live_streams (youtube_video_id, starts_at, ends_at) VALUES ('abc3','2026-06-02 10:00+00','2026-06-02 12:00+00') RETURNING id",
-      )
-      expect(nonOverlapping.rowCount).toBe(1)
-    } finally {
-      await client.end()
-    }
-  }, 30_000)
 })

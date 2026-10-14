@@ -63,7 +63,6 @@ describe.skipIf(!hasTestDatabase)('BSS-031: jogosultságok', () => {
           jsonRequest(ctx.schonherzToken, '/api/admin/live', {
             youtubeUrl: 'https://www.youtube.com/watch?v=abc123',
             startsAt: '2026-09-01T10:00:00Z',
-            endsAt: '2026-09-01T12:00:00Z',
           }),
           undefined,
           undefined,
@@ -165,9 +164,8 @@ describe.skipIf(!hasTestDatabase)('BSS-031: kiemelés', () => {
 })
 
 describe.skipIf(!hasTestDatabase)('BSS-031: live', () => {
-  it('hibás YouTube URL nem menthető; érvényes igen; átfedés 409', async () => {
+  it('hibás YouTube URL nem menthető; érvényes igen; ütemezett szerkeszthető', async () => {
     const ctx = await setupAdminApiTest('bss hplive')
-    // Within the 10:00–12:00 window, so `start_now` keeps endsAt > startsAt.
     const clock = new FakeClock('2026-09-01T10:30:00+02:00')
     const baseDeps = { ...deps(ctx), clock, fetchImpl: oembedFetch(false) }
 
@@ -176,7 +174,6 @@ describe.skipIf(!hasTestDatabase)('BSS-031: live', () => {
       jsonRequest(ctx.leadershipToken, '/api/admin/live', {
         youtubeUrl: 'https://www.youtube.com/watch?v=nemletezo',
         startsAt: '2026-09-01T10:00:00+02:00',
-        endsAt: '2026-09-01T12:00:00+02:00',
       }),
       undefined,
       undefined,
@@ -192,7 +189,6 @@ describe.skipIf(!hasTestDatabase)('BSS-031: live', () => {
       jsonRequest(ctx.leadershipToken, '/api/admin/live', {
         youtubeUrl: 'https://www.youtube.com/watch?v=abc12345',
         startsAt: '2026-09-01T10:00:00+02:00',
-        endsAt: '2026-09-01T12:00:00+02:00',
       }),
       undefined,
       undefined,
@@ -202,18 +198,25 @@ describe.skipIf(!hasTestDatabase)('BSS-031: live', () => {
     expect(createdBody.status).toBe(200)
     const liveId = String(createdBody.payload['id'])
 
-    // Átfedő ablak nem menthető.
-    const overlap = await handleAdminLiveRoutes(
-      jsonRequest(ctx.leadershipToken, '/api/admin/live', {
+    // Szerkesztés: videó és kezdési idő.
+    const updated = await handleAdminLiveRoutes(
+      jsonRequest(ctx.leadershipToken, `/api/admin/live/${liveId}/update`, {
         youtubeUrl: 'https://youtu.be/xyz98765',
         startsAt: '2026-09-01T11:00:00+02:00',
-        endsAt: '2026-09-01T13:00:00+02:00',
       }),
-      undefined,
-      undefined,
+      liveId,
+      'update',
       okDeps,
     )
-    expect(overlap.status).toBe(409)
+    expect(updated.status).toBe(200)
+    const editedRows = await ctx.db
+      .select()
+      .from(liveStreams)
+      .where(eq(liveStreams.id, liveId))
+    expect(editedRows.at(0)?.youtubeVideoId).toBe('xyz98765')
+    expect(editedRows.at(0)?.startsAt.toISOString()).toBe(
+      '2026-09-01T09:00:00.000Z',
+    )
 
     // Indítás most → aktív.
     const started = await handleAdminLiveRoutes(
@@ -304,5 +307,37 @@ describe.skipIf(!hasTestDatabase)('BSS-031: Rólunk-videók', () => {
     expect(data.about).toEqual([])
     expect(data.highlight.videoId).toBeNull()
     expect(Array.isArray(data.selectableVideos)).toBe(true)
+  })
+
+  it('a live listában minden nyitott live és csak az utolsó 10 befejezett szerepel', async () => {
+    const ctx = await setupAdminApiTest('bss hplivelist')
+    const endedRows = Array.from({ length: 12 }, (_, index) => ({
+      youtubeVideoId: `ended${String(index).padStart(2, '0')}`,
+      startsAt: new Date(Date.UTC(2026, 6, index + 1, 18)),
+      status: 'ended' as const,
+      endedAt: new Date(Date.UTC(2026, 6, index + 1, 20)),
+    }))
+    await ctx.db.insert(liveStreams).values([
+      ...endedRows,
+      {
+        youtubeVideoId: 'scheduled1',
+        startsAt: new Date('2026-09-01T18:00:00Z'),
+      },
+      {
+        youtubeVideoId: 'scheduled2',
+        startsAt: new Date('2026-09-02T18:00:00Z'),
+      },
+    ])
+
+    const data = await getHomepageAdminData(ctx.db)
+    const open = data.live.filter((live) => live.status !== 'ended')
+    const ended = data.live.filter((live) => live.status === 'ended')
+    expect(open.map((live) => live.youtubeVideoId).sort()).toEqual([
+      'scheduled1',
+      'scheduled2',
+    ])
+    expect(ended).toHaveLength(10)
+    expect(ended.at(0)?.youtubeVideoId).toBe('ended11')
+    expect(ended.map((live) => live.youtubeVideoId)).not.toContain('ended00')
   })
 })

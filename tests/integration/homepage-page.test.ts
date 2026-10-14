@@ -123,7 +123,6 @@ describe.skipIf(!hasTestDatabase)('BSS-024: homepage állapot DTO', () => {
       {
         youtubeUrl: 'https://www.youtube.com/watch?v=abc123',
         startsAt: new Date(clock.now().getTime() + 2 * 60 * 60 * 1000),
-        endsAt: new Date(clock.now().getTime() + 4 * 60 * 60 * 1000),
       },
     )
 
@@ -142,8 +141,7 @@ describe.skipIf(!hasTestDatabase)('BSS-024: homepage állapot DTO', () => {
       `update live_streams
        set status = 'active',
            activated_at = now(),
-           starts_at = '${clock.now().toISOString()}',
-           ends_at = '${new Date(clock.now().getTime() + 60 * 60 * 1000).toISOString()}'
+           starts_at = '${clock.now().toISOString()}'
        where status = 'scheduled'`,
     )
     const liveState = await getHomepagePage(db, { now: clock.now() })

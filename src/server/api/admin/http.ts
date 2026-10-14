@@ -12,7 +12,6 @@ import {
 import { CatalogNameConflictError } from '#/server/catalog/tags.ts'
 import { StaffRoleInUseError } from '#/server/catalog/staff-roles.ts'
 import { EventConfirmationError } from '#/server/events/domain.ts'
-import { LiveOverlapError } from '#/server/homepage/live.ts'
 import { EntityNotFoundError, StaleWriteError } from '#/server/shared/write.ts'
 import { TextValidationError } from '#/server/shared/text.ts'
 import {
@@ -50,9 +49,6 @@ export function errorResponse(error: unknown): Response {
   }
   if (error instanceof CatalogNameConflictError) {
     return jsonResponse(409, { error: 'name_conflict', message: error.message })
-  }
-  if (error instanceof LiveOverlapError) {
-    return jsonResponse(409, { error: 'overlap', message: error.message })
   }
   if (error instanceof StaffRoleInUseError) {
     return jsonResponse(409, { error: 'role_in_use', message: error.message })

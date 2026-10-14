@@ -36,7 +36,7 @@ const WEBHOOK_CLIENT_ACTION_PATTERN =
   /^\/api\/admin\/webhook-clients\/([0-9a-f-]+)\/(rotate|revoke|delete)$/
 
 const LIVE_ACTION_PATTERN =
-  /^\/api\/admin\/live\/([0-9a-f-]+)\/(reschedule|start_now|end_now|delete)$/
+  /^\/api\/admin\/live\/([0-9a-f-]+)\/(update|start_now|end_now|delete)$/
 
 export async function handleApiRequest(request: Request): Promise<Response> {
   const pathname = new URL(request.url).pathname.replace(/\/+$/, '') || '/'

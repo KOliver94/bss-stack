@@ -1,7 +1,8 @@
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
 import { createServerFn } from '@tanstack/react-start'
 import { getRequest } from '@tanstack/react-start/server'
 import { useState } from 'react'
+import type { ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
   VIDEO_PAGE_SIZES,
@@ -21,6 +22,7 @@ import {
   FILTER_LABEL_CLASS,
 } from '#/components/admin/SearchSelect.tsx'
 import type { VideoListRawSearch } from '#/server/pages/video-list.ts'
+import { pageHead, pagedPath } from '#/lib/seo.ts'
 
 const loadVideoList = createServerFn({ method: 'GET' })
   .validator((search: VideoListRawSearch) => search)
@@ -79,6 +81,17 @@ export const Route = createFileRoute('/videos/')({
       queryKey: ['video-list', deps.search],
       queryFn: () => loadVideoList({ data: deps.search }),
     }),
+  head: ({ match }) => {
+    const { page, q, sort, perPage, event, from, to, tags } = match.search
+    const filtered = [q, sort, perPage, event, from, to, tags].some(
+      (value) => value !== undefined,
+    )
+    return pageHead({
+      title: 'Videók',
+      description: 'A Budavári Schönherz Stúdió videói.',
+      path: filtered ? '/videos' : pagedPath('/videos', page),
+    })
+  },
   component: VideoListPage,
   pendingComponent: VideoListSkeleton,
 })
@@ -87,7 +100,6 @@ export const Route = createFileRoute('/videos/')({
 function VideoListSkeleton() {
   return (
     <main className="site-width my-[4dvh]">
-      <title>Videók | Budavári Schönherz Stúdió</title>
       <h1 className="mb-6 text-3xl font-bold text-(--bss-text)">Videók</h1>
       <ThumbnailGridSkeleton
         count={10}
@@ -121,7 +133,6 @@ function VideoListPage() {
 
   return (
     <main className="site-width my-[4dvh]">
-      <title>Videók | Budavári Schönherz Stúdió</title>
       <h1 className="mb-6 text-3xl font-bold text-(--bss-text)">Videók</h1>
 
       <VideoFilterBar
@@ -177,15 +188,6 @@ function VideoListPage() {
             <Pagination
               page={pageData.data.page}
               totalPages={pageData.data.totalPages}
-              onPage={(page) =>
-                navigate({
-                  to: '/videos',
-                  search: (prev) => ({
-                    ...prev,
-                    page: page === 1 ? undefined : String(page),
-                  }),
-                })
-              }
             />
           </>
         ))}
@@ -371,11 +373,9 @@ function TagPicker({
 function Pagination({
   page,
   totalPages,
-  onPage,
 }: {
   page: number
   totalPages: number
-  onPage: (page: number) => void
 }) {
   if (totalPages <= 1) {
     return null
@@ -383,15 +383,14 @@ function Pagination({
   const items = getPaginationItems(page, totalPages)
   return (
     <nav aria-label="Videólapozás" className="mt-8 flex justify-center gap-1">
-      <button
-        type="button"
+      <PageLink
+        page={page - 1}
         disabled={page === 1}
-        onClick={() => onPage(page - 1)}
         aria-label="Előző oldal"
         className="ctrl-btn h-10 rounded px-3"
       >
         ‹
-      </button>
+      </PageLink>
       {items.map((item, index) =>
         item === 'ellipsis' ? (
           <span
@@ -402,26 +401,61 @@ function Pagination({
             …
           </span>
         ) : (
-          <button
+          <PageLink
             key={item}
-            type="button"
-            onClick={() => onPage(item)}
+            page={item}
             aria-current={item === page ? 'page' : undefined}
             className={`ctrl-btn h-10 w-10 rounded ${item === page ? 'font-bold text-(--orange)' : 'text-(--bss-text-secondary)'}`}
           >
             {item}
-          </button>
+          </PageLink>
         ),
       )}
-      <button
-        type="button"
+      <PageLink
+        page={page + 1}
         disabled={page === totalPages}
-        onClick={() => onPage(page + 1)}
         aria-label="Következő oldal"
         className="ctrl-btn h-10 rounded px-3"
       >
         ›
-      </button>
+      </PageLink>
     </nav>
+  )
+}
+
+function PageLink({
+  page,
+  disabled = false,
+  className,
+  children,
+  ...aria
+}: {
+  page: number
+  disabled?: boolean
+  className: string
+  children: ReactNode
+  'aria-label'?: string
+  'aria-current'?: 'page'
+}) {
+  const centered = `${className} inline-flex items-center justify-center`
+  if (disabled) {
+    return (
+      <span {...aria} aria-disabled="true" className={`${centered} opacity-30`}>
+        {children}
+      </span>
+    )
+  }
+  return (
+    <Link
+      {...aria}
+      to="/videos"
+      search={(prev) => ({
+        ...prev,
+        page: page === 1 ? undefined : String(page),
+      })}
+      className={centered}
+    >
+      {children}
+    </Link>
   )
 }

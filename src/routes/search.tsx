@@ -8,6 +8,7 @@ import { resolveViewerStateFromRequest } from '#/server/pages/viewer.ts'
 import { getDefaultDb } from '#/server/auth/session-store.ts'
 import Thumbnail from '#/components/Thumbnail.tsx'
 import { memberSlug } from '#/lib/member-slug.ts'
+import { noindexHead } from '#/lib/seo.ts'
 
 const SEARCH_TABS = [
   { key: 'all', label: 'Összes' },
@@ -75,6 +76,7 @@ export const Route = createFileRoute('/search')({
         return { query, results, videos }
       },
     }),
+  head: () => noindexHead('Keresés'),
   component: SearchPage,
 })
 
@@ -86,8 +88,6 @@ function SearchPage() {
 
   return (
     <main className="site-width my-[4dvh]">
-      <meta name="robots" content="noindex, nofollow" />
-      <title>Keresés | Budavári Schönherz Stúdió</title>
       <h1 className="mb-6 text-3xl font-bold text-(--bss-text)">
         Keresés{query !== '' ? `: „${query}”` : ''}
       </h1>

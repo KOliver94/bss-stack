@@ -15,6 +15,7 @@ import type { QueryClient } from '@tanstack/react-query'
 import Navbar from '#/components/Navbar.tsx'
 import { ErrorState, NotFoundContent } from '#/components/PageStates.tsx'
 import { fetchViewerState } from '#/server/pages/viewer-fn.ts'
+import { SITE_NAME } from '#/lib/seo.ts'
 
 interface MyRouterContext {
   queryClient: QueryClient
@@ -33,7 +34,8 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
         content: 'width=device-width, initial-scale=1',
       },
       {
-        title: 'Budavári Schönherz Stúdió',
+        // Fallback only: a page's own `head` title replaces it.
+        title: SITE_NAME,
       },
     ],
     links: [

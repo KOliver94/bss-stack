@@ -16,6 +16,13 @@ import {
   SkeletonLine,
   ThumbnailCardSkeleton,
 } from '#/components/PageStates.tsx'
+import { SOCIAL_LINKS } from '#/components/Footer.tsx'
+import {
+  DEFAULT_DESCRIPTION,
+  SITE_NAME,
+  getSiteOrigin,
+  pageHead,
+} from '#/lib/seo.ts'
 
 const loadHomepage = createServerFn({ method: 'GET' }).handler(async () => {
   const db = await getDefaultDb()
@@ -28,6 +35,39 @@ export const Route = createFileRoute('/')({
       queryKey: ['homepage'],
       queryFn: loadHomepage,
     }),
+  head: () => {
+    const origin = getSiteOrigin()
+    return pageHead({
+      description: DEFAULT_DESCRIPTION,
+      path: '/',
+      jsonLd: [
+        {
+          '@context': 'https://schema.org',
+          '@type': 'Organization',
+          name: SITE_NAME,
+          alternateName: 'BSS',
+          url: `${origin}/`,
+          logo: `${origin}/og-default.png`,
+          email: 'info@bsstudio.hu',
+          address: {
+            '@type': 'PostalAddress',
+            streetAddress: 'Irinyi József u. 42.',
+            postalCode: '1117',
+            addressLocality: 'Budapest',
+            addressCountry: 'HU',
+          },
+          sameAs: SOCIAL_LINKS.map((social) => social.href),
+        },
+        {
+          '@context': 'https://schema.org',
+          '@type': 'WebSite',
+          name: SITE_NAME,
+          url: `${origin}/`,
+          inLanguage: 'hu',
+        },
+      ],
+    })
+  },
   component: HomePage,
   // The placeholder stays visible while the loader is pending, not a plain text line.
   pendingComponent: HomepageSkeleton,
@@ -74,9 +114,9 @@ function HomepageContent({ state }: { state: HomepageStateDto }) {
 
   return (
     <main className="site-width">
-      <div className="my-[5dvh] font-bank-gothic text-[clamp(1rem,10dvw,66px)] font-bold leading-none text-(--bss-text)">
+      <h1 className="my-[5dvh] font-bank-gothic text-[clamp(1rem,10dvw,66px)] font-bold leading-none text-(--bss-text)">
         Budavári Schönherz Stúdió
-      </div>
+      </h1>
 
       <section className="mb-[6dvh] grid grid-cols-1 gap-x-[3dvw] gap-y-[3dvh] md:grid-cols-[1.5fr_1fr]">
         {/* Hero */}
@@ -139,8 +179,6 @@ function HomepageContent({ state }: { state: HomepageStateDto }) {
           </p>
         ) : (
           <div
-            // A scroll container clips at its padding box, so without this
-            // padding it would cut off the card shadows and the hover lift.
             className="-mx-3 flex flex-nowrap gap-[1dvw] overflow-x-auto px-3 pt-2 pb-10 scrollbar-hide *:shrink-0"
             ref={scrollRef}
           >
@@ -183,9 +221,9 @@ function HomepageSkeleton() {
       aria-label="Főoldal betöltése…"
     >
       <span className="sr-only">Főoldal betöltése…</span>
-      <div className="my-[5dvh] font-bank-gothic text-[clamp(1rem,10dvw,66px)] font-bold leading-none text-(--bss-text)">
+      <h1 className="my-[5dvh] font-bank-gothic text-[clamp(1rem,10dvw,66px)] font-bold leading-none text-(--bss-text)">
         Budavári Schönherz Stúdió
-      </div>
+      </h1>
 
       <section className="mb-[6dvh] grid grid-cols-1 gap-x-[3dvw] gap-y-[3dvh] md:grid-cols-[1.5fr_1fr]">
         <div>
@@ -235,7 +273,6 @@ function HeroCard({ video }: { video: HomepageVideoCard | null }) {
       params={{ slug: video.slug }}
       className="group card-surface hover-lift block"
     >
-      {/* The hero is the most important image on the page: load it eagerly. */}
       <Thumbnail src={video.keyframeUrl} alt={video.title} loading="eager" />
       <span className="block truncate px-2 py-2 text-xl font-bold text-(--bss-text-secondary) group-hover:text-(--orange)">
         {video.title}
@@ -244,18 +281,11 @@ function HeroCard({ video }: { video: HomepageVideoCard | null }) {
   )
 }
 
-/**
- * Highlighted hero: the video plays right here on the homepage, and the title
- * under it opens the video page for the full view (description, staff,
- * related videos). Without an MP4 URL only the linked cover image remains.
- */
 function HeroPlayer({ video }: { video: HomepageHeroVideo }) {
   if (video.videoUrl === null) {
     return <HeroCard video={video} />
   }
   return (
-    // The videos are 16:9: the arbitrary variant reserves the frame before the
-    // metadata arrives, so the page layout doesn't jump.
     <div className="card-surface [&_video]:aspect-video [&_video]:w-full">
       <VideoDetailPlayer
         videoId={video.id}
@@ -271,8 +301,6 @@ function HeroPlayer({ video }: { video: HomepageHeroVideo }) {
         className="flex items-center gap-2 px-2 py-2 text-xl font-bold text-(--bss-text-secondary) hover:text-(--orange) hover:underline"
       >
         <span className="truncate">{video.title}</span>
-        {/* Points to the video page: there the video can be viewed with all
-         * its data. */}
         <svg
           xmlns="http://www.w3.org/2000/svg"
           width="18"

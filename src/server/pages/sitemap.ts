@@ -9,9 +9,12 @@ export interface SitemapEntry {
 }
 
 const STATIC_PATHS = [
+  '/',
   '/videos',
   '/events',
   '/members',
+  '/members/alumni',
+  '/members/archived',
   '/about',
   '/contact',
 ] as const

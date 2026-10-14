@@ -5,7 +5,7 @@ import {
   redirect,
 } from '@tanstack/react-router'
 import { createServerFn } from '@tanstack/react-start'
-import { getRequest, getRequestUrl } from '@tanstack/react-start/server'
+import { getRequest } from '@tanstack/react-start/server'
 import { resolveViewerStateFromRequest } from '#/server/pages/viewer.ts'
 import { getDefaultDb } from '#/server/auth/session-store.ts'
 import { getEventDetail } from '#/server/pages/event-list.ts'
@@ -16,6 +16,7 @@ import {
 } from '#/lib/format-date.ts'
 import Thumbnail from '#/components/Thumbnail.tsx'
 import { memberSlug } from '#/lib/member-slug.ts'
+import { pageHead, pagedPath } from '#/lib/seo.ts'
 
 const loadEventDetail = createServerFn({ method: 'GET' })
   .validator((input: { slug: string; page?: number }) => input)
@@ -26,11 +27,7 @@ const loadEventDetail = createServerFn({ method: 'GET' })
       page: data.page,
     })
     if (detail !== null) {
-      return {
-        detail,
-        redirectSlug: null as string | null,
-        canonical: `${getRequestUrl().origin}/events/${detail.slug}`,
-      }
+      return { detail, redirectSlug: null as string | null }
     }
     const resolution = await resolvePublicSlug(db, {
       entityType: 'event',
@@ -43,7 +40,6 @@ const loadEventDetail = createServerFn({ method: 'GET' })
         resolution !== null && resolution.kind === 'redirect'
           ? resolution.canonicalSlug
           : null,
-      canonical: '',
     }
   })
 
@@ -75,28 +71,28 @@ export const Route = createFileRoute('/events/$slug')({
     if (result.detail === null) {
       throw notFound()
     }
-    return { detail: result.detail, canonical: result.canonical }
+    return { detail: result.detail }
   },
+  head: ({ loaderData, match }) =>
+    loaderData === undefined
+      ? {}
+      : pageHead({
+          title: loaderData.detail.title,
+          description: loaderData.detail.description,
+          path: pagedPath(
+            `/events/${loaderData.detail.slug}`,
+            match.search.page,
+          ),
+          image: loaderData.detail.thumbnailUrl,
+        }),
   component: EventDetailPageComponent,
 })
 
 function EventDetailPageComponent() {
-  const { detail, canonical } = Route.useLoaderData()
-  const description = detail.description?.slice(0, 300) ?? detail.title
+  const { detail } = Route.useLoaderData()
 
   return (
     <main className="site-width my-[4dvh]">
-      <title>{`${detail.title} | Budavári Schönherz Stúdió`}</title>
-      <meta name="description" content={description} />
-      <link rel="canonical" href={canonical} />
-      <meta property="og:title" content={detail.title} />
-      <meta property="og:description" content={description} />
-      <meta property="og:url" content={canonical} />
-      <meta property="og:type" content="website" />
-      {detail.thumbnailUrl !== null && (
-        <meta property="og:image" content={detail.thumbnailUrl} />
-      )}
-
       <div className="flex flex-col gap-6 md:flex-row">
         <div className="w-full md:w-[420px] md:shrink-0">
           <Thumbnail

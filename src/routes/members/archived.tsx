@@ -4,6 +4,7 @@ import {
   archiveMembersQuery,
   MemberArchiveList,
 } from '#/components/MemberArchiveList.tsx'
+import { pageHead, pagedPath } from '#/lib/seo.ts'
 
 export const Route = createFileRoute('/members/archived')({
   validateSearch: (search: Record<string, unknown>) => ({
@@ -14,6 +15,15 @@ export const Route = createFileRoute('/members/archived')({
     context.queryClient.ensureQueryData(
       archiveMembersQuery('archived', deps.page),
     ),
+  head: ({ loaderData, match }) =>
+    loaderData === undefined
+      ? {}
+      : pageHead({
+          title: loaderData.title,
+          description:
+            'Korábbi közreműködők a Budavári Schönherz Stúdióban.',
+          path: pagedPath('/members/archived', match.search.page),
+        }),
   component: ArchivedMembersPage,
 })
 

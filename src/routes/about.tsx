@@ -3,6 +3,8 @@ import { createServerFn } from '@tanstack/react-start'
 import { getAboutPageVideos } from '#/server/homepage/about.ts'
 import { getDefaultDb } from '#/server/auth/session-store.ts'
 import { videoThumbnailUrl } from '#/server/media/video-media.ts'
+import { pageHead } from '#/lib/seo.ts'
+import { THUMBNAIL_FALLBACK_SRC } from '#/components/Thumbnail.tsx'
 
 const ABOUT_TEXT_VERSION = 1
 
@@ -29,6 +31,13 @@ export const Route = createFileRoute('/about')({
       queryFn: loadAboutPage,
       staleTime: 60_000,
     }),
+  head: ({ loaderData }) =>
+    pageHead({
+      title: 'Rólunk',
+      description: ABOUT_TEXT,
+      path: '/about',
+      image: loaderData?.at(0)?.thumbnailUrl,
+    }),
   component: AboutPage,
 })
 
@@ -37,7 +46,6 @@ function AboutPage() {
 
   return (
     <main className="site-width my-[4dvh]">
-      <title>Rólunk | Budavári Schönherz Stúdió</title>
       <h1 className="mb-6 text-3xl font-bold text-(--bss-text)">
         Mivel foglalkozunk?
       </h1>
@@ -59,7 +67,7 @@ function AboutPage() {
                 className="group block shadow-[0px_2px_6px_0_rgba(0,0,0,0.25)]"
               >
                 <img
-                  src={video.thumbnailUrl ?? '/video-thumbnail.png'}
+                  src={video.thumbnailUrl ?? THUMBNAIL_FALLBACK_SRC}
                   alt={video.title}
                   className="block h-auto w-full object-cover"
                 />

@@ -7,7 +7,7 @@ import {
 import { createServerFn } from '@tanstack/react-start'
 import { useQuery } from '@tanstack/react-query'
 import { Pencil } from 'lucide-react'
-import { getRequest, getRequestUrl } from '@tanstack/react-start/server'
+import { getRequest } from '@tanstack/react-start/server'
 import { resolveViewerStateFromRequest } from '#/server/pages/viewer.ts'
 import { getDefaultDb } from '#/server/auth/session-store.ts'
 import { getVideoDetail } from '#/server/pages/video-detail.ts'
@@ -18,6 +18,8 @@ import Thumbnail from '#/components/Thumbnail.tsx'
 import { parseVideoStartTime } from '#/lib/video-time.ts'
 import { memberSlug } from '#/lib/member-slug.ts'
 import { fetchViewerState } from '#/server/pages/viewer-fn.ts'
+import { pageHead } from '#/lib/seo.ts'
+import type { VideoDetail } from '#/server/pages/video-detail.ts'
 
 const loadVideoDetail = createServerFn({ method: 'GET' })
   .validator((slug: string) => slug)
@@ -26,12 +28,7 @@ const loadVideoDetail = createServerFn({ method: 'GET' })
     const db = await getDefaultDb()
     const detail = await getVideoDetail(db, viewer, slug)
     if (detail !== null) {
-      const origin = getRequestUrl().origin
-      return {
-        detail,
-        redirectSlug: null as string | null,
-        canonical: `${origin}/videos/${detail.slug}`,
-      }
+      return { detail, redirectSlug: null as string | null }
     }
     // No public video at the current slug: try an old slug redirect.
     const resolution = await resolvePublicSlug(db, {
@@ -43,7 +40,7 @@ const loadVideoDetail = createServerFn({ method: 'GET' })
       resolution !== null && resolution.kind === 'redirect'
         ? resolution.canonicalSlug
         : null
-    return { detail: null, redirectSlug, canonical: '' }
+    return { detail: null, redirectSlug }
   })
 
 export const Route = createFileRoute('/videos/$slug')({
@@ -62,16 +59,47 @@ export const Route = createFileRoute('/videos/$slug')({
     if (result.detail === null) {
       throw notFound()
     }
-    return {
-      detail: result.detail,
-      canonical: result.canonical,
-    }
+    return { detail: result.detail }
   },
+  head: ({ loaderData }) =>
+    loaderData === undefined
+      ? {}
+      : pageHead({
+          title: loaderData.detail.title,
+          description: loaderData.detail.description,
+          path: `/videos/${loaderData.detail.slug}`,
+          image: loaderData.detail.thumbnailUrl,
+          type: 'video.other',
+          jsonLd: videoJsonLd(loaderData.detail),
+        }),
   component: VideoDetailPage,
 })
 
+function videoJsonLd(detail: VideoDetail): Array<Record<string, unknown>> {
+  const thumbnailUrl = detail.thumbnailUrl ?? detail.keyframeUrl
+  const uploadDate = detail.publishedAt?.toISOString() ?? detail.recordedAt
+  if (thumbnailUrl === null || uploadDate === null) {
+    return []
+  }
+  return [
+    {
+      '@context': 'https://schema.org',
+      '@type': 'VideoObject',
+      name: detail.title,
+      description: detail.description ?? detail.title,
+      thumbnailUrl: [thumbnailUrl],
+      uploadDate,
+      ...(detail.videoUrl !== null ? { contentUrl: detail.videoUrl } : {}),
+      inLanguage: 'hu',
+      ...(detail.tags.length > 0
+        ? { keywords: detail.tags.map((tag) => tag.name).join(', ') }
+        : {}),
+    },
+  ]
+}
+
 function VideoDetailPage() {
-  const { detail, canonical } = Route.useLoaderData()
+  const { detail } = Route.useLoaderData()
   const { t: startTime } = Route.useSearch()
   const viewerQuery = useQuery({
     queryKey: ['viewer'],
@@ -80,20 +108,8 @@ function VideoDetailPage() {
   })
   const canEdit =
     viewerQuery.data?.loggedIn === true && viewerQuery.data.canAccessAdmin
-  const description = detail.description?.slice(0, 300) ?? detail.title
   return (
     <main className="flex-1">
-      <title>{`${detail.title} | Budavári Schönherz Stúdió`}</title>
-      <meta name="description" content={description} />
-      <link rel="canonical" href={canonical} />
-      <meta property="og:title" content={detail.title} />
-      <meta property="og:description" content={description} />
-      <meta property="og:url" content={canonical} />
-      <meta property="og:type" content="video.other" />
-      {detail.thumbnailUrl !== null && (
-        <meta property="og:image" content={detail.thumbnailUrl} />
-      )}
-
       <div className="flex w-full justify-center bg-black">
         {detail.videoUrl !== null ? (
           <div className="w-full max-w-6xl">

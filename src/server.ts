@@ -3,6 +3,7 @@ import {
   defaultStreamHandler,
 } from '@tanstack/react-start/server'
 import { handleApiRequest, API_PATH_PREFIXES } from '#/server/api/router.ts'
+import { getRequestOrigin } from '#/server/api/http.ts'
 import { startBackgroundRunner } from '#/server/jobs/runner.ts'
 import type { BackgroundRunnerHandle } from '#/server/jobs/runner.ts'
 import { securityHeaders, robotsTxt } from '#/server/http/security-headers.ts'
@@ -32,12 +33,6 @@ function isApiPath(pathname: string): boolean {
   return API_PATH_PREFIXES.some((prefix) => pathname.startsWith(prefix))
 }
 
-// In development mode, Vite module and asset requests also pass through
-// this handler. We must let them through to the Vite middleware: the
-// TanStack Router treats route segments starting with `$` as parameters,
-// so it would respond with a 307 to `/src/routes/videos/undefined` for
-// `/src/routes/videos/$slug.tsx`. Because of this the route tree's module
-// graph never loads, the client never hydrates, and no button works.
 const DEV_ASSET_PREFIXES = ['/@', '/src/', '/node_modules/'] as const
 
 function isDevAssetPath(pathname: string): boolean {
@@ -78,14 +73,14 @@ export default {
       return handleApiRequest(request)
     }
     if (pathname === '/robots.txt') {
-      return new Response(robotsTxt(url.origin), {
+      return new Response(robotsTxt(getRequestOrigin(request)), {
         headers: { 'content-type': 'text/plain; charset=utf-8' },
       })
     }
     if (pathname === '/sitemap.xml') {
       const db = await getDefaultDb()
       const entries = await getSitemapEntries(db)
-      return new Response(sitemapXml(entries, url.origin), {
+      return new Response(sitemapXml(entries, getRequestOrigin(request)), {
         headers: {
           'content-type': 'application/xml; charset=utf-8',
           'cache-control': 'public, max-age=600',

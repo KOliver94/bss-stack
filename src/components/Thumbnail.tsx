@@ -2,8 +2,7 @@
 
 import { useCallback, useState } from 'react'
 
-/** Every thumbnail is 16:9; a missing image also reserves that space. */
-export const THUMBNAIL_FALLBACK_SRC = '/video-thumbnail.png'
+export const THUMBNAIL_FALLBACK_SRC = '/og-default.png'
 
 const THUMBNAIL_WIDTH = 160
 const KEYFRAME_WIDTH = 768

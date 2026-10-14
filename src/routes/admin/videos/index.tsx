@@ -32,6 +32,7 @@ import {
   formatAdminDateTimeHu,
   formatCalendarDateHu,
 } from '#/lib/format-date.ts'
+import { THUMBNAIL_FALLBACK_SRC } from '#/components/Thumbnail.tsx'
 
 const loadAdminVideoList = createServerFn({ method: 'GET' })
   .validator(
@@ -54,8 +55,6 @@ const loadFilterOptions = createServerFn({ method: 'GET' }).handler(
   },
 )
 
-// Type alias (not an interface) so it can be passed to the server function's
-// `Record` parameter with an implicit index signature.
 type AdminVideoSearch = {
   q?: string
   status?: string
@@ -181,7 +180,7 @@ const videoColumns: Array<AdminColumn<AdminVideoListItem>> = [
     render: (row) => (
       <span className="flex items-center gap-2">
         <img
-          src={row.thumbnailUrl ?? '/video-thumbnail.png'}
+          src={row.thumbnailUrl ?? THUMBNAIL_FALLBACK_SRC}
           alt=""
           className="h-8 w-14 rounded object-cover"
         />

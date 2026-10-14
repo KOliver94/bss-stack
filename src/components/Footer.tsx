@@ -38,7 +38,7 @@ const partners = [
   },
 ]
 
-const socialLinks = [
+export const SOCIAL_LINKS = [
   {
     name: 'Facebook',
     href: 'https://www.facebook.com/bsstudio',
@@ -71,15 +71,14 @@ export default function Footer() {
         info@bsstudio.hu
       </a>
       <div className="mx-auto flex gap-4">
-        {socialLinks.map((social) => (
+        {SOCIAL_LINKS.map((social) => (
           <a
             key={social.name}
             href={social.href}
             target="_blank"
             rel="noopener noreferrer"
-            aria-label={social.name}
           >
-            <img src={social.src} alt="" width={40} height={40} />
+            <img src={social.src} alt={social.name} width={40} height={40} />
           </a>
         ))}
       </div>
@@ -92,11 +91,10 @@ export default function Footer() {
             href={partner.href}
             target="_blank"
             rel="noopener noreferrer"
-            aria-label={partner.name}
           >
             <img
               src={partner.src}
-              alt=""
+              alt={partner.name}
               width={partner.width}
               height={partner.height}
               className="h-8 w-auto"

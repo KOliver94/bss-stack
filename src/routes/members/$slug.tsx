@@ -5,7 +5,7 @@ import {
   useNavigate,
 } from '@tanstack/react-router'
 import { createServerFn } from '@tanstack/react-start'
-import { getRequest, getRequestUrl } from '@tanstack/react-start/server'
+import { getRequest } from '@tanstack/react-start/server'
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { getMemberActivity, getMemberProfile } from '#/server/pages/members.ts'
@@ -17,29 +17,15 @@ import { getDefaultDb } from '#/server/auth/session-store.ts'
 import { formatCalendarDateHu } from '#/lib/format-date.ts'
 import { formatAcademicSemesterHu } from '#/lib/academic-semester.ts'
 import { memberSlug } from '#/lib/member-slug.ts'
+import { SITE_NAME, pageHead } from '#/lib/seo.ts'
+
+const ACTIVITY_PAGE_SIZE = 50
 
 const loadMemberProfile = createServerFn({ method: 'GET' })
   .validator((slug: string) => slug)
   .handler(async ({ data: slug }) => {
     const db = await getDefaultDb()
     return getMemberProfile(db, slug)
-  })
-
-const loadMemberMeta = createServerFn({ method: 'GET' })
-  .validator((slug: string) => slug)
-  .handler(async ({ data: slug }) => {
-    const db = await getDefaultDb()
-    const profile = await getMemberProfile(db, slug)
-    if (profile === null) {
-      return null
-    }
-    const description =
-      profile.introduction?.slice(0, 300) ??
-      `${profile.fullName} profilja a Budavári Schönherz Stúdióban (${profile.statusLabel}).`
-    return {
-      canonical: `${getRequestUrl().origin}/members/${memberSlug(profile)}`,
-      description,
-    }
   })
 
 const loadMemberActivity = createServerFn({ method: 'GET' })
@@ -75,25 +61,48 @@ export const Route = createFileRoute('/members/$slug')({
     }
     return result
   },
-  loader: async ({ params }) => {
-    const [profile, meta] = await Promise.all([
+  loader: async ({ params, context }) => {
+    const [profile, viewer] = await Promise.all([
       loadMemberProfile({ data: params.slug }),
-      loadMemberMeta({ data: params.slug }),
+      context.queryClient.ensureQueryData({
+        queryKey: ['viewer'],
+        queryFn: fetchViewerState,
+        staleTime: 60_000,
+      }),
     ])
-    if (profile === null || meta === null) {
+    if (profile === null) {
       throw notFound()
     }
-    return { profile, meta }
+    await context.queryClient.prefetchQuery({
+      queryKey: ['member-activity', profile.sub, 0, viewer.level],
+      queryFn: () =>
+        loadMemberActivity({
+          data: { sub: profile.sub, limit: ACTIVITY_PAGE_SIZE, offset: 0 },
+        }),
+    })
+    return { profile }
   },
+  head: ({ loaderData }) =>
+    loaderData === undefined
+      ? {}
+      : pageHead({
+          title: loaderData.profile.fullName,
+          description:
+            loaderData.profile.introduction ??
+            `${loaderData.profile.fullName} profilja a ${SITE_NAME}ban (${loaderData.profile.statusLabel}).`,
+          path: `/members/${memberSlug(loaderData.profile)}`,
+          image: loaderData.profile.avatarUrl,
+          type: 'profile',
+          twitterCard: 'summary',
+        }),
   component: MemberProfilePage,
 })
 
 function MemberProfilePage() {
-  const { profile, meta } = Route.useLoaderData()
+  const { profile } = Route.useLoaderData()
   const navigate = useNavigate()
   const search = Route.useSearch()
   const view = search.view ?? 'year'
-  const pageSize = 50
   const [extraRows, setExtraRows] = useState<Array<ActivityRow>>([])
 
   const viewerQuery = useQuery({
@@ -107,7 +116,7 @@ function MemberProfilePage() {
     queryKey: ['member-activity', profile.sub, 0, level],
     queryFn: () =>
       loadMemberActivity({
-        data: { sub: profile.sub, limit: pageSize, offset: 0 },
+        data: { sub: profile.sub, limit: ACTIVITY_PAGE_SIZE, offset: 0 },
       }),
   })
 
@@ -143,24 +152,13 @@ function MemberProfilePage() {
   async function loadMore() {
     const nextOffset = rows.length
     const result = await loadMemberActivity({
-      data: { sub: profile.sub, limit: pageSize, offset: nextOffset },
+      data: { sub: profile.sub, limit: ACTIVITY_PAGE_SIZE, offset: nextOffset },
     })
     setExtraRows((prev) => [...prev, ...result.items])
   }
 
   return (
     <main className="site-width my-[4dvh]">
-      <title>{`${profile.fullName} | Budavári Schönherz Stúdió`}</title>
-      <meta name="description" content={meta.description} />
-      <link rel="canonical" href={meta.canonical} />
-      <meta property="og:title" content={profile.fullName} />
-      <meta property="og:description" content={meta.description} />
-      <meta property="og:url" content={meta.canonical} />
-      <meta property="og:type" content="profile" />
-      {profile.avatarUrl !== null && (
-        <meta property="og:image" content={profile.avatarUrl} />
-      )}
-
       <div className="flex flex-col gap-6 md:flex-row md:gap-8">
         <img
           className="h-[440px] w-auto max-w-[300px] self-start object-contain object-top drop-shadow-[0_5px_10px_rgba(255,145,0,0.45)]"

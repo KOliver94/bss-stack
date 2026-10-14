@@ -10,6 +10,7 @@ import { resolveViewerStateFromRequest } from '#/server/pages/viewer.ts'
 import { getDefaultDb } from '#/server/auth/session-store.ts'
 import { EmptyState, ThumbnailGridSkeleton } from '#/components/PageStates.tsx'
 import Thumbnail from '#/components/Thumbnail.tsx'
+import { pageHead, pagedPath } from '#/lib/seo.ts'
 
 const loadEventList = createServerFn({ method: 'GET' })
   .validator((input: { page?: number; perPage?: number }) => input)
@@ -49,6 +50,16 @@ export const Route = createFileRoute('/events/')({
           },
         }),
     }),
+  head: ({ match }) =>
+    pageHead({
+      title: 'Események',
+      description:
+        'Egyetemi és kollégiumi rendezvények, amelyekről a Budavári Schönherz Stúdió videót készített.',
+      path:
+        match.search.perPage === undefined
+          ? pagedPath('/events', match.search.page)
+          : '/events',
+    }),
   component: EventListPageComponent,
   pendingComponent: EventListSkeleton,
 })
@@ -57,7 +68,6 @@ export const Route = createFileRoute('/events/')({
 function EventListSkeleton() {
   return (
     <main className="site-width my-[4dvh]">
-      <title>Események | Budavári Schönherz Stúdió</title>
       <h1 className="mb-6 text-3xl font-bold text-(--bss-text)">Események</h1>
       <ThumbnailGridSkeleton
         count={12}
@@ -87,7 +97,6 @@ function EventListPageComponent() {
 
   return (
     <main className="site-width my-[4dvh]">
-      <title>Események | Budavári Schönherz Stúdió</title>
       <h1 className="mb-6 text-3xl font-bold text-(--bss-text)">Események</h1>
 
       {listQuery.isPending && (
@@ -121,7 +130,6 @@ function EventListPageComponent() {
                   params={{ slug: item.slug }}
                   className="group card-surface hover-lift block shadow-[0_2px_6px_rgba(0,0,0,0.25)]"
                 >
-                  {/* The video-count badge attaches to the cover image, not the title. */}
                   <div className="relative">
                     <Thumbnail src={item.thumbnailUrl} alt={item.title} />
                     <span className="absolute right-2 bottom-2 rounded-full bg-black/70 px-2 py-1 text-xs font-bold text-white">

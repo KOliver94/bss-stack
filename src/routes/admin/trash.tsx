@@ -14,6 +14,7 @@ import { ErrorState, LoadingState } from '#/components/PageStates.tsx'
 import { AdminPrimaryButton } from '#/components/admin/form.tsx'
 import { postJson } from '#/lib/admin-api.ts'
 import { formatAdminDateTimeHu } from '#/lib/format-date.ts'
+import { THUMBNAIL_FALLBACK_SRC } from '#/components/Thumbnail.tsx'
 
 const loadTrashPage = createServerFn({ method: 'GET' })
   .validator(
@@ -159,7 +160,7 @@ function TrashRow({
     <div className="rounded border border-(--nav-border-b) p-3">
       <div className="flex flex-wrap items-center gap-3">
         <img
-          src={item.thumbnailUrl ?? '/video-thumbnail.png'}
+          src={item.thumbnailUrl ?? THUMBNAIL_FALLBACK_SRC}
           alt=""
           className="h-8 w-14 rounded object-cover"
         />

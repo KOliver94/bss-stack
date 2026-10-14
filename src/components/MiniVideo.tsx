@@ -1,6 +1,8 @@
+import { THUMBNAIL_FALLBACK_SRC } from '#/components/Thumbnail.tsx'
+
 export default function MiniVideo({
   videoName = 'Unknown video',
-  thumbnailUrl = '/video-thumbnail.png',
+  thumbnailUrl = THUMBNAIL_FALLBACK_SRC,
 }: {
   videoName?: string
   thumbnailUrl?: string

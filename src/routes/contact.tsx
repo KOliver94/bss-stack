@@ -9,6 +9,7 @@ import {
   Video,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
+import { pageHead } from '#/lib/seo.ts'
 
 const CONTACT_EMAIL = 'info@bsstudio.hu'
 
@@ -54,13 +55,19 @@ const CONTACT_OPTIONS: ContactOption[] = [
 ]
 
 export const Route = createFileRoute('/contact')({
+  head: () =>
+    pageHead({
+      title: 'Kapcsolat',
+      description:
+        'Videós felkérés, általános kérdés vagy csatlakozás: így éred el a Budavári Schönherz Stúdiót. Budapest, Irinyi József u. 42.',
+      path: '/contact',
+    }),
   component: ContactPage,
 })
 
 function ContactPage() {
   return (
     <main className="site-width my-[4dvh]">
-      <title>Kapcsolat | Budavári Schönherz Stúdió</title>
       <h1 className="text-3xl font-bold text-(--bss-text)">Kapcsolat</h1>
       <p className="mt-2 text-lg text-(--bss-text-secondary)">
         Keress minket – miben segíthetünk?

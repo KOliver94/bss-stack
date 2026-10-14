@@ -5,6 +5,7 @@ import { getActiveMemberBlocks } from '#/server/pages/members.ts'
 import type { PublicMemberCard } from '#/server/pages/members.ts'
 import { getDefaultDb } from '#/server/auth/session-store.ts'
 import { memberSlug } from '#/lib/member-slug.ts'
+import { pageHead } from '#/lib/seo.ts'
 
 const loadActiveMembers = createServerFn({ method: 'GET' }).handler(
   async () => {
@@ -19,6 +20,13 @@ export const Route = createFileRoute('/members/')({
       queryKey: ['members-active'],
       queryFn: loadActiveMembers,
       staleTime: 60_000,
+    }),
+  head: () =>
+    pageHead({
+      title: 'Tagok',
+      description:
+        'A Budavári Schönherz Stúdió vezetősége és jelenlegi tagjai.',
+      path: '/members',
     }),
   component: MembersPage,
 })
@@ -126,7 +134,9 @@ export function MemberBlock({
               {member.fullName}
             </p>
             {member.nickname !== null && (
-              <p className="text-(--bss-text-secondary) italic">{member.nickname}</p>
+              <p className="text-(--bss-text-secondary) italic">
+                {member.nickname}
+              </p>
             )}
             {member.leadershipRole !== null && (
               <p className="text-sm text-(--bss-text-secondary)">

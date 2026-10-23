@@ -3,6 +3,7 @@ import {
   contentSecurityPolicy,
   robotsTxt,
   securityHeaders,
+  withSecurityHeaders,
 } from '#/server/http/security-headers.ts'
 import { TEST_MEDIA_HOST } from '../helpers/oob-config.ts'
 
@@ -23,6 +24,29 @@ describe('BSS-035: biztonsági fejlécek és CSP', () => {
     expect(headers['referrer-policy']).toBe('strict-origin-when-cross-origin')
     expect(headers['permissions-policy']).toContain('camera=()')
     expect(headers['content-security-policy']).toContain('default-src')
+  })
+
+  it('a válasz saját fejléceit megtartja, a hiányzó biztonsági fejléceket hozzáadja', async () => {
+    const response = withSecurityHeaders(
+      new Response('<urlset/>', {
+        status: 200,
+        headers: {
+          'content-type': 'application/xml; charset=utf-8',
+          'x-frame-options': 'SAMEORIGIN',
+        },
+      }),
+      TEST_MEDIA_HOST,
+    )
+    expect(response.status).toBe(200)
+    expect(await response.text()).toBe('<urlset/>')
+    expect(response.headers.get('content-type')).toBe(
+      'application/xml; charset=utf-8',
+    )
+    expect(response.headers.get('x-frame-options')).toBe('SAMEORIGIN')
+    expect(response.headers.get('x-content-type-options')).toBe('nosniff')
+    expect(response.headers.get('content-security-policy')).toContain(
+      "default-src 'self'",
+    )
   })
 
   it('a robots.txt tiltja az admin, api és keresés útvonalakat, és mutatja a sitemapet', () => {

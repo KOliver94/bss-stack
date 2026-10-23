@@ -55,8 +55,8 @@ describe('lokális Authentik bootstrap', () => {
     expect(statuses).toEqual(
       expect.arrayContaining([
         'stúdiós',
-        'stúdiósjelölt',
-        'stúdiósjelölt-jelölt',
+        'stúdiós-jelölt',
+        'stúdiós-jelölt jelölt',
         'aktív öregtag',
         'archivált öregtag',
       ]),
@@ -86,8 +86,8 @@ describe('lokális Authentik bootstrap', () => {
     for (const group of [
       'Admin',
       'Stúdiós',
-      'Stúdiós jelölt',
-      'Stúdiós jelölt-jelölt',
+      'Stúdiós-jelölt',
+      'Stúdiós-jelölt jelölt',
       'Vezetőség',
       'Öregtag',
     ]) {

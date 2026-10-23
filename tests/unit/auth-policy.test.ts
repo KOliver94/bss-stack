@@ -79,7 +79,7 @@ describe('nézői szint felismerése csoportokból', () => {
     ).toBe('leadership')
   })
 
-  it.each(['Stúdiós', 'Stúdiós jelölt', 'Stúdiós jelölt-jelölt', 'Öregtag'])(
+  it.each(['Stúdiós', 'Stúdiós-jelölt', 'Stúdiós-jelölt jelölt', 'Öregtag'])(
     '%s csoport BSS-tagságot ad',
     (group) => {
       expect(

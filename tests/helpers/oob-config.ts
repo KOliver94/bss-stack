@@ -38,8 +38,8 @@ export function buildRawOobConfig(
       groups: {
         admin: 'Admin',
         studio: 'Stúdiós',
-        studioCandidate: 'Stúdiós jelölt',
-        studioCandidateCandidate: 'Stúdiós jelölt-jelölt',
+        studioCandidate: 'Stúdiós-jelölt',
+        studioCandidateCandidate: 'Stúdiós-jelölt jelölt',
         leadership: 'Vezetőség',
         alumni: 'Öregtag',
       },

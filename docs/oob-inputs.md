@@ -10,7 +10,7 @@ Az alkalmazás három bemenete out-of-band, azaz nem a git repóban érkezik. Hi
 - Tartalma:
   - Authentik OIDC kapcsolat: issuer URL, client id, client secret, scope-ok;
   - claim-leképezés: az Authentik felhasználót a taggal összekötő `sub`;
-  - csoportleképezés: Admin, Stúdiós, Stúdiós jelölt, Stúdiós jelölt-jelölt, Vezetőség és Öregtag;
+  - csoportleképezés: Admin, Stúdiós, Stúdiós-jelölt, Stúdiós-jelölt jelölt, Vezetőség és Öregtag;
   - AuthSCH OIDC kapcsolat (`authsch`, lásd lent);
   - médiahost (`media.host`, jelenleg `https://v.bsstudio.hu`);
   - YouTube oEmbed végpont;

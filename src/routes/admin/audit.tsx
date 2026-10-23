@@ -2,6 +2,7 @@ import { createFileRoute, redirect } from '@tanstack/react-router'
 import { createServerFn } from '@tanstack/react-start'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { getDefaultDb } from '#/server/auth/session-store.ts'
+import { searchInput } from '#/server/shared/server-fn-input.ts'
 import {
   parsePaginationNumber,
   parseSearchPage,
@@ -28,15 +29,14 @@ import { formatAdminDateTimeHu } from '#/lib/format-date.ts'
 
 const loadAuditPage = createServerFn({ method: 'GET' })
   .middleware([leadershipFnMiddleware])
-  .validator(
-    (input: Record<string, string | number | undefined> | undefined) =>
-      input ?? {},
+  .validator((input: Record<string, string | number | undefined> | undefined) =>
+    searchInput(input),
   )
   .handler(async ({ data }) => {
     const db = await getDefaultDb()
     return getAuditPage(db, {
       page: parsePaginationNumber(data['page'], 1),
-      perPage: parsePaginationNumber(data['perPage'], 25),
+      perPage: 25,
       filters: parseAuditFilters(data),
     })
   })

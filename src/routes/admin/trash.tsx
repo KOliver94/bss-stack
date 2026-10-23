@@ -3,6 +3,7 @@ import { createServerFn } from '@tanstack/react-start'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { getDefaultDb } from '#/server/auth/session-store.ts'
+import { searchInput } from '#/server/shared/server-fn-input.ts'
 import { adminFnMiddleware } from '#/server/pages/admin/access-fn.ts'
 import {
   parsePaginationNumber,
@@ -19,15 +20,14 @@ import { THUMBNAIL_FALLBACK_SRC } from '#/components/Thumbnail.tsx'
 
 const loadTrashPage = createServerFn({ method: 'GET' })
   .middleware([adminFnMiddleware])
-  .validator(
-    (input: Record<string, string | number | undefined> | undefined) =>
-      input ?? {},
+  .validator((input: Record<string, string | number | undefined> | undefined) =>
+    searchInput(input),
   )
   .handler(async ({ data }) => {
     const db = await getDefaultDb()
     return getTrashPage(db, {
       page: parsePaginationNumber(data['page'], 1),
-      perPage: parsePaginationNumber(data['perPage'], 25),
+      perPage: 25,
     })
   })
 

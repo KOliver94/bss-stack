@@ -6,6 +6,7 @@ import type { MemberHit } from '#/server/search/service.ts'
 import { getVideoListPage } from '#/server/pages/video-list.ts'
 import { resolveViewerStateFromRequest } from '#/server/pages/viewer.ts'
 import { getDefaultDb } from '#/server/auth/session-store.ts'
+import { stringInput } from '#/server/shared/server-fn-input.ts'
 import Thumbnail from '#/components/Thumbnail.tsx'
 import { memberSlug } from '#/lib/member-slug.ts'
 import { noindexHead } from '#/lib/seo.ts'
@@ -20,7 +21,7 @@ const SEARCH_TABS = [
 type SearchTab = (typeof SEARCH_TABS)[number]['key']
 
 const loadSearchResults = createServerFn({ method: 'GET' })
-  .validator((query: string) => query)
+  .validator((query: string) => stringInput(query))
   .handler(async ({ data: query }) => {
     const { viewer } = await resolveViewerStateFromRequest(getRequest())
     const db = await getDefaultDb()
@@ -29,7 +30,7 @@ const loadSearchResults = createServerFn({ method: 'GET' })
   })
 
 const loadVideoHits = createServerFn({ method: 'GET' })
-  .validator((query: string) => query)
+  .validator((query: string) => stringInput(query))
   .handler(async ({ data: query }) => {
     const { viewer } = await resolveViewerStateFromRequest(getRequest())
     const db = await getDefaultDb()

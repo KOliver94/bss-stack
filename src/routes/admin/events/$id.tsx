@@ -9,6 +9,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 import { getAdminEventDetail } from '#/server/admin/event-list.ts'
 import { getDefaultDb } from '#/server/auth/session-store.ts'
+import { idInput } from '#/server/shared/server-fn-input.ts'
 import { adminFnMiddleware } from '#/server/pages/admin/access-fn.ts'
 import { allowedMediaHosts } from '#/server/media/allowed-hosts.ts'
 import { fetchViewerState } from '#/server/pages/viewer-fn.ts'
@@ -33,7 +34,7 @@ import type { AdminEventDetail } from '#/server/admin/event-list.ts'
 
 const loadAdminEventEditor = createServerFn({ method: 'GET' })
   .middleware([adminFnMiddleware])
-  .validator((input: unknown) => input as { id: string })
+  .validator((input: { id: string }) => idInput(input))
   .handler(async ({ data }) => {
     const db = await getDefaultDb()
     const detail = await getAdminEventDetail(db, data.id)

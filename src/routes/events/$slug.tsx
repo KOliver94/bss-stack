@@ -8,6 +8,11 @@ import { createServerFn } from '@tanstack/react-start'
 import { getRequest } from '@tanstack/react-start/server'
 import { resolveViewerStateFromRequest } from '#/server/pages/viewer.ts'
 import { getDefaultDb } from '#/server/auth/session-store.ts'
+import {
+  optionalNumberInput,
+  recordInput,
+  stringInput,
+} from '#/server/shared/server-fn-input.ts'
 import { getEventDetail } from '#/server/pages/event-list.ts'
 import { resolvePublicSlug } from '#/server/pages/slug-route.ts'
 import {
@@ -19,7 +24,13 @@ import { memberSlug } from '#/lib/member-slug.ts'
 import { pageHead, pagedPath } from '#/lib/seo.ts'
 
 const loadEventDetail = createServerFn({ method: 'GET' })
-  .validator((input: { slug: string; page?: number }) => input)
+  .validator((input: { slug: string; page?: number }) => {
+    const raw = recordInput(input)
+    return {
+      slug: stringInput(raw['slug']),
+      page: optionalNumberInput(raw['page']),
+    }
+  })
   .handler(async ({ data }) => {
     const { viewer } = await resolveViewerStateFromRequest(getRequest())
     const db = await getDefaultDb()

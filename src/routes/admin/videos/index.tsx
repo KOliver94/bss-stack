@@ -10,6 +10,7 @@ import {
 } from '#/server/admin/video-list.ts'
 import type { AdminVideoListItem } from '#/server/admin/video-list.ts'
 import { getDefaultDb } from '#/server/auth/session-store.ts'
+import { searchInput } from '#/server/shared/server-fn-input.ts'
 import { adminFnMiddleware } from '#/server/pages/admin/access-fn.ts'
 import {
   parsePaginationNumber,
@@ -37,15 +38,14 @@ import { THUMBNAIL_FALLBACK_SRC } from '#/components/Thumbnail.tsx'
 
 const loadAdminVideoList = createServerFn({ method: 'GET' })
   .middleware([adminFnMiddleware])
-  .validator(
-    (input: Record<string, string | number | undefined> | undefined) =>
-      input ?? {},
+  .validator((input: Record<string, string | number | undefined> | undefined) =>
+    searchInput(input),
   )
   .handler(async ({ data }) => {
     const db = await getDefaultDb()
     return getAdminVideoList(db, {
       page: parsePaginationNumber(data['page'], 1),
-      perPage: parsePaginationNumber(data['perPage'], ADMIN_DEFAULT_PAGE_SIZE),
+      perPage: ADMIN_DEFAULT_PAGE_SIZE,
       filters: parseAdminVideoFilters(data),
     })
   })

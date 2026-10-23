@@ -7,6 +7,7 @@ import {
   parseAdminEventFilters,
 } from '#/server/admin/event-list.ts'
 import { getDefaultDb } from '#/server/auth/session-store.ts'
+import { searchInput } from '#/server/shared/server-fn-input.ts'
 import { adminFnMiddleware } from '#/server/pages/admin/access-fn.ts'
 import {
   parsePaginationNumber,
@@ -25,15 +26,14 @@ import { formatEventIntervalHu } from '#/lib/format-date.ts'
 
 const loadAdminEventList = createServerFn({ method: 'GET' })
   .middleware([adminFnMiddleware])
-  .validator(
-    (input: Record<string, string | number | undefined> | undefined) =>
-      input ?? {},
+  .validator((input: Record<string, string | number | undefined> | undefined) =>
+    searchInput(input),
   )
   .handler(async ({ data }) => {
     const db = await getDefaultDb()
     return getAdminEventList(db, {
       page: parsePaginationNumber(data['page'], 1),
-      perPage: parsePaginationNumber(data['perPage'], 25),
+      perPage: 25,
       filters: parseAdminEventFilters(data),
     })
   })

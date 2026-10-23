@@ -10,6 +10,7 @@ import {
 } from '#/server/admin/video-list.ts'
 import type { AdminVideoListItem } from '#/server/admin/video-list.ts'
 import { getDefaultDb } from '#/server/auth/session-store.ts'
+import { adminFnMiddleware } from '#/server/pages/admin/access-fn.ts'
 import {
   parsePaginationNumber,
   parseSearchPage,
@@ -35,6 +36,7 @@ import {
 import { THUMBNAIL_FALLBACK_SRC } from '#/components/Thumbnail.tsx'
 
 const loadAdminVideoList = createServerFn({ method: 'GET' })
+  .middleware([adminFnMiddleware])
   .validator(
     (input: Record<string, string | number | undefined> | undefined) =>
       input ?? {},
@@ -48,12 +50,12 @@ const loadAdminVideoList = createServerFn({ method: 'GET' })
     })
   })
 
-const loadFilterOptions = createServerFn({ method: 'GET' }).handler(
-  async () => {
+const loadFilterOptions = createServerFn({ method: 'GET' })
+  .middleware([adminFnMiddleware])
+  .handler(async () => {
     const db = await getDefaultDb()
     return getAdminVideoFilterOptions(db)
-  },
-)
+  })
 
 type AdminVideoSearch = {
   q?: string

@@ -4,7 +4,10 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { getDefaultDb } from '#/server/auth/session-store.ts'
 import { getMemberDiagnostics } from '#/server/admin/member-diagnostics.ts'
-import { fetchLeadershipAreaAccess } from '#/server/pages/admin/access-fn.ts'
+import {
+  leadershipFnMiddleware,
+  fetchLeadershipAreaAccess,
+} from '#/server/pages/admin/access-fn.ts'
 import { ErrorState, LoadingState } from '#/components/PageStates.tsx'
 import {
   AdminPrimaryButton,
@@ -30,12 +33,12 @@ import { formatAdminDateTimeHu } from '#/lib/format-date.ts'
 
 const QUERY_KEY = ['admin-member-diagnostics']
 
-const loadMemberDiagnostics = createServerFn({ method: 'GET' }).handler(
-  async () => {
+const loadMemberDiagnostics = createServerFn({ method: 'GET' })
+  .middleware([leadershipFnMiddleware])
+  .handler(async () => {
     const db = await getDefaultDb()
     return getMemberDiagnostics(db)
-  },
-)
+  })
 
 export const Route = createFileRoute('/admin/members')({
   beforeLoad: async () => {

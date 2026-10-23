@@ -4,7 +4,10 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { getDefaultDb } from '#/server/auth/session-store.ts'
 import { listTagsWithUsage } from '#/server/catalog/tags.ts'
-import { fetchLeadershipAreaAccess } from '#/server/pages/admin/access-fn.ts'
+import {
+  leadershipFnMiddleware,
+  fetchLeadershipAreaAccess,
+} from '#/server/pages/admin/access-fn.ts'
 import { ErrorState, LoadingState } from '#/components/PageStates.tsx'
 import {
   AdminSearchSelect,
@@ -28,10 +31,12 @@ interface TagRow {
   videoCount: number
 }
 
-const loadTagCatalog = createServerFn({ method: 'GET' }).handler(async () => {
-  const db = await getDefaultDb()
-  return listTagsWithUsage(db)
-})
+const loadTagCatalog = createServerFn({ method: 'GET' })
+  .middleware([leadershipFnMiddleware])
+  .handler(async () => {
+    const db = await getDefaultDb()
+    return listTagsWithUsage(db)
+  })
 
 export const Route = createFileRoute('/admin/catalog/tags')({
   beforeLoad: async () => {

@@ -4,7 +4,10 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { getDefaultDb } from '#/server/auth/session-store.ts'
 import { listStaffRolesWithUsage } from '#/server/catalog/staff-roles.ts'
-import { fetchLeadershipAreaAccess } from '#/server/pages/admin/access-fn.ts'
+import {
+  leadershipFnMiddleware,
+  fetchLeadershipAreaAccess,
+} from '#/server/pages/admin/access-fn.ts'
 import { ErrorState, LoadingState } from '#/components/PageStates.tsx'
 import {
   AdminSearchSelect,
@@ -25,10 +28,12 @@ interface RoleRow {
   videoCount: number
 }
 
-const loadRoleCatalog = createServerFn({ method: 'GET' }).handler(async () => {
-  const db = await getDefaultDb()
-  return listStaffRolesWithUsage(db)
-})
+const loadRoleCatalog = createServerFn({ method: 'GET' })
+  .middleware([leadershipFnMiddleware])
+  .handler(async () => {
+    const db = await getDefaultDb()
+    return listStaffRolesWithUsage(db)
+  })
 
 export const Route = createFileRoute('/admin/catalog/staff-roles')({
   beforeLoad: async () => {

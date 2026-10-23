@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { ExternalLink } from 'lucide-react'
 import { getDefaultDb } from '#/server/auth/session-store.ts'
+import { adminFnMiddleware } from '#/server/pages/admin/access-fn.ts'
 import { getHomepageAdminData } from '#/server/admin/homepage-admin.ts'
 import { fetchViewerState } from '#/server/pages/viewer-fn.ts'
 import { ErrorState, LoadingState } from '#/components/PageStates.tsx'
@@ -30,12 +31,12 @@ import {
 import { youtubeUrlWarning } from '#/lib/youtube-url.ts'
 import type { SearchSelectOption } from '#/components/admin/SearchSelect.tsx'
 
-const loadHomepageAdmin = createServerFn({ method: 'GET' }).handler(
-  async () => {
+const loadHomepageAdmin = createServerFn({ method: 'GET' })
+  .middleware([adminFnMiddleware])
+  .handler(async () => {
     const db = await getDefaultDb()
     return getHomepageAdminData(db)
-  },
-)
+  })
 
 export const Route = createFileRoute('/admin/homepage')({
   loader: ({ context }) =>

@@ -7,6 +7,7 @@ import {
   getAdminVideoEditorOptions,
 } from '#/server/admin/video-detail.ts'
 import { getDefaultDb } from '#/server/auth/session-store.ts'
+import { adminFnMiddleware } from '#/server/pages/admin/access-fn.ts'
 import { getCachedOobConfig } from '#/server/config/load.ts'
 import { fetchViewerState } from '#/server/pages/viewer-fn.ts'
 import { ErrorState, LoadingState } from '#/components/PageStates.tsx'
@@ -39,6 +40,7 @@ import type { SongEntry } from '#/lib/song-list.ts'
 import type { AdminVideoDetail } from '#/server/admin/video-detail.ts'
 
 const loadAdminVideoEditor = createServerFn({ method: 'GET' })
+  .middleware([adminFnMiddleware])
   .validator((input: unknown) => input as { id: string })
   .handler(async ({ data }) => {
     const db = await getDefaultDb()

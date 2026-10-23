@@ -12,7 +12,10 @@ import {
   parseAuditFilters,
 } from '#/server/admin/audit-admin.ts'
 import type { AuditListItem } from '#/server/admin/audit-admin.ts'
-import { fetchLeadershipAreaAccess } from '#/server/pages/admin/access-fn.ts'
+import {
+  leadershipFnMiddleware,
+  fetchLeadershipAreaAccess,
+} from '#/server/pages/admin/access-fn.ts'
 import { ErrorState, LoadingState } from '#/components/PageStates.tsx'
 import { ResponsiveTable } from '#/components/admin/ResponsiveTable.tsx'
 import {
@@ -24,6 +27,7 @@ import type { SearchSelectOption } from '#/components/admin/SearchSelect.tsx'
 import { formatAdminDateTimeHu } from '#/lib/format-date.ts'
 
 const loadAuditPage = createServerFn({ method: 'GET' })
+  .middleware([leadershipFnMiddleware])
   .validator(
     (input: Record<string, string | number | undefined> | undefined) =>
       input ?? {},
@@ -37,12 +41,12 @@ const loadAuditPage = createServerFn({ method: 'GET' })
     })
   })
 
-const loadAuditFilterValues = createServerFn({ method: 'GET' }).handler(
-  async () => {
+const loadAuditFilterValues = createServerFn({ method: 'GET' })
+  .middleware([leadershipFnMiddleware])
+  .handler(async () => {
     const db = await getDefaultDb()
     return getAuditFilterValues(db)
-  },
-)
+  })
 
 interface AuditSearch extends Record<string, string | number | undefined> {
   page?: number

@@ -7,6 +7,7 @@ import {
   parseAdminEventFilters,
 } from '#/server/admin/event-list.ts'
 import { getDefaultDb } from '#/server/auth/session-store.ts'
+import { adminFnMiddleware } from '#/server/pages/admin/access-fn.ts'
 import {
   parsePaginationNumber,
   parseSearchPage,
@@ -23,6 +24,7 @@ import { EVENT_STATUS_OPTIONS, eventStatusLabel } from '#/lib/admin-labels.ts'
 import { formatEventIntervalHu } from '#/lib/format-date.ts'
 
 const loadAdminEventList = createServerFn({ method: 'GET' })
+  .middleware([adminFnMiddleware])
   .validator(
     (input: Record<string, string | number | undefined> | undefined) =>
       input ?? {},

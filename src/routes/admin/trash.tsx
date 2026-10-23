@@ -3,6 +3,7 @@ import { createServerFn } from '@tanstack/react-start'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { getDefaultDb } from '#/server/auth/session-store.ts'
+import { adminFnMiddleware } from '#/server/pages/admin/access-fn.ts'
 import {
   parsePaginationNumber,
   parseSearchPage,
@@ -17,6 +18,7 @@ import { formatAdminDateTimeHu } from '#/lib/format-date.ts'
 import { THUMBNAIL_FALLBACK_SRC } from '#/components/Thumbnail.tsx'
 
 const loadTrashPage = createServerFn({ method: 'GET' })
+  .middleware([adminFnMiddleware])
   .validator(
     (input: Record<string, string | number | undefined> | undefined) =>
       input ?? {},

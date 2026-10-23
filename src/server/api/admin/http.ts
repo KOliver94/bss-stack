@@ -161,9 +161,10 @@ export async function runAdminHandler(
 
 export async function requireAdminViewer(
   request: Request,
-  deps: { config?: OobConfig } = {},
+  deps: HandlerDeps = {},
 ): Promise<Viewer> {
   const { viewer } = await resolveViewerStateFromRequest(request, {
+    db: deps.db,
     config: deps.config,
   })
   requireAdmin(viewer, new URL(request.url).pathname)
@@ -172,9 +173,10 @@ export async function requireAdminViewer(
 
 export async function requireLeadershipViewer(
   request: Request,
-  deps: { config?: OobConfig } = {},
+  deps: HandlerDeps = {},
 ): Promise<Viewer> {
   const { viewer } = await resolveViewerStateFromRequest(request, {
+    db: deps.db,
     config: deps.config,
   })
   requireLeadership(viewer)

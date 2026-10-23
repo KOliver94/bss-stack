@@ -1,7 +1,30 @@
-import { createServerFn } from '@tanstack/react-start'
+import { createMiddleware, createServerFn } from '@tanstack/react-start'
 import { getRequest } from '@tanstack/react-start/server'
+import {
+  requireAdminViewer,
+  requireLeadershipViewer,
+} from '#/server/api/admin/http.ts'
 import { resolveViewerStateFromRequest } from '#/server/pages/viewer.ts'
 import { adminAreaAccess, leadershipAreaAccess } from './access.ts'
+
+/**
+ * Every server function is a public HTTP endpoint of its own, whichever route
+ * calls it, so privileged ones check the caller here; route guards only steer
+ * navigation.
+ */
+export const adminFnMiddleware = createMiddleware({ type: 'function' }).server(
+  async ({ next }) => {
+    await requireAdminViewer(getRequest())
+    return next()
+  },
+)
+
+export const leadershipFnMiddleware = createMiddleware({
+  type: 'function',
+}).server(async ({ next }) => {
+  await requireLeadershipViewer(getRequest())
+  return next()
+})
 
 export interface AdminAccessDto {
   kind: 'ok' | 'login' | 'forbidden'

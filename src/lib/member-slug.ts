@@ -8,3 +8,14 @@ export function memberSlug(member: {
 }): string {
   return member.username ?? member.sub
 }
+
+/**
+ * Profile path with the slug URL-encoded, the same form router links produce:
+ * the `sub` and the username arrive unchecked from outside.
+ */
+export function memberProfilePath(member: {
+  sub: string
+  username: string | null
+}): string {
+  return `/members/${encodeURIComponent(memberSlug(member))}`
+}

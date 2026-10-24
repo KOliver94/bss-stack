@@ -1,7 +1,7 @@
 import { and, desc, eq, isNull } from 'drizzle-orm'
 import { events, memberCache, videos } from '#/db/schema.ts'
 import type { Executor } from '#/server/shared/db-executor.ts'
-import { memberSlug } from '#/lib/member-slug.ts'
+import { memberProfilePath } from '#/lib/member-slug.ts'
 import { escapeHtml } from '#/server/api/http.ts'
 
 export interface SitemapEntry {
@@ -66,10 +66,9 @@ export async function getSitemapEntries(
     .from(memberCache)
     .where(isNull(memberCache.archivedAt))
 
-  // Unlike content slugs, the `sub` and the username come from outside unchecked.
   for (const row of memberRows) {
     entries.push({
-      path: `/members/${encodeURIComponent(memberSlug(row))}`,
+      path: memberProfilePath(row),
       lastmod: row.updatedAt.toISOString(),
     })
   }

@@ -14,8 +14,10 @@ const FORBIDDEN = 'forbidden'
 export const Route = createFileRoute('/admin')({
   // Admin pages must not start loading data for a viewer without access:
   // child loaders wait for `beforeLoad`, while a `loader` runs alongside them.
-  beforeLoad: async () => {
-    const access = await fetchAdminAreaAccess()
+  beforeLoad: async ({ location }) => {
+    const access = await fetchAdminAreaAccess({
+      data: { returnTo: location.href },
+    })
     if (access.kind === 'login') {
       throw redirect({ href: access.loginUrl })
     }

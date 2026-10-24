@@ -5,6 +5,8 @@ import {
   requireLeadershipViewer,
 } from '#/server/api/admin/http.ts'
 import { resolveViewerStateFromRequest } from '#/server/pages/viewer.ts'
+import { recordInput, stringInput } from '#/server/shared/server-fn-input.ts'
+import { sanitizeReturnTo } from '#/lib/return-to.ts'
 import { adminAreaAccess, leadershipAreaAccess } from './access.ts'
 
 /**
@@ -32,16 +34,22 @@ export interface AdminAccessDto {
   viewer?: { level: string; sub: string | null; username: string | null }
 }
 
-export const fetchAdminAreaAccess = createServerFn({ method: 'GET' }).handler(
-  async (): Promise<AdminAccessDto> => {
+/**
+ * The page passes its own path as `returnTo`: on a client-side navigation the
+ * request URL is this function's endpoint, not the page.
+ */
+export const fetchAdminAreaAccess = createServerFn({ method: 'GET' })
+  .validator((input: { returnTo: string }) => ({
+    returnTo: sanitizeReturnTo(stringInput(recordInput(input)['returnTo'])),
+  }))
+  .handler(async ({ data }): Promise<AdminAccessDto> => {
     return toDto(
       adminAreaAccess(
         (await resolveViewerStateFromRequest(getRequest())).viewer,
-        currentPath(),
+        data.returnTo,
       ),
     )
-  },
-)
+  })
 
 /** Separate, stricter guard for leadership areas (members, audit). */
 export const fetchLeadershipAreaAccess = createServerFn({
@@ -53,14 +61,6 @@ export const fetchLeadershipAreaAccess = createServerFn({
     ),
   )
 })
-
-function currentPath(): string {
-  try {
-    return new URL(getRequest().url).pathname
-  } catch {
-    return '/admin'
-  }
-}
 
 function toDto(access: ReturnType<typeof adminAreaAccess>): AdminAccessDto {
   if (access.kind === 'login') {

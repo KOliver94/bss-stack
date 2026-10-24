@@ -39,15 +39,15 @@ export interface VideoListRawSearch {
 
 export function videoListSearchInput(input: unknown): VideoListRawSearch {
   const raw = recordInput(input)
-  const tags = raw['tags']
+  const rawTags = raw['tags']
   return {
     q: optionalStringInput(raw['q']),
     sort: optionalStringInput(raw['sort']),
     page: searchValueInput(raw['page']),
     perPage: searchValueInput(raw['perPage']),
-    tags: Array.isArray(tags)
-      ? tags.map(stringInput)
-      : optionalStringInput(tags),
+    tags: Array.isArray(rawTags)
+      ? rawTags.map(stringInput)
+      : optionalStringInput(rawTags),
     event: optionalStringInput(raw['event']),
     from: optionalStringInput(raw['from']),
     to: optionalStringInput(raw['to']),

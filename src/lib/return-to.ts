@@ -1,5 +1,6 @@
-// Browsers drop tabs and newlines while parsing a URL, so "/\t/evil.com"
-// would turn into the protocol-relative "//evil.com".
+// A returnTo must stay on this site. Browsers drop tabs and newlines while
+// parsing a URL, so "/\t/evil.com" would become the protocol-relative
+// "//evil.com".
 function hasControlCharacter(value: string): boolean {
   for (let index = 0; index < value.length; index++) {
     const code = value.charCodeAt(index)

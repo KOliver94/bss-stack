@@ -42,10 +42,20 @@ export function securityHeaders(
   }
 }
 
+// Responses that do not need the OOB config (robots.txt, the sitemap) must not
+// fail without it; no media can load then anyway, so the CSP leaves it out.
+function configuredMediaHost(): string {
+  try {
+    return getCachedOobConfig().media.host
+  } catch {
+    return ''
+  }
+}
+
 /** Adds the baseline headers that the response does not set itself. */
 export function withSecurityHeaders(
   response: Response,
-  mediaHost = getCachedOobConfig().media.host,
+  mediaHost = configuredMediaHost(),
 ): Response {
   const headers = new Headers(response.headers)
   for (const [name, value] of Object.entries(securityHeaders(mediaHost))) {

@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+import { resetCachedOobConfig } from '#/server/config/load.ts'
 import {
   contentSecurityPolicy,
   robotsTxt,
@@ -47,6 +48,21 @@ describe('BSS-035: biztonsági fejlécek és CSP', () => {
     expect(response.headers.get('content-security-policy')).toContain(
       "default-src 'self'",
     )
+  })
+
+  it('OOB config nélkül is hozzáadja a fejléceket, médiahost nélküli CSP-vel', () => {
+    vi.stubEnv('BSS_OOB_CONFIG', 'nem-letezik/config.json')
+    resetCachedOobConfig()
+    try {
+      const response = withSecurityHeaders(new Response('User-agent: *'))
+      expect(response.headers.get('x-content-type-options')).toBe('nosniff')
+      expect(response.headers.get('content-security-policy')).toContain(
+        "media-src 'self'",
+      )
+    } finally {
+      vi.unstubAllEnvs()
+      resetCachedOobConfig()
+    }
   })
 
   it('a robots.txt tiltja az admin, api és keresés útvonalakat, és mutatja a sitemapet', () => {

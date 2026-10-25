@@ -19,6 +19,8 @@ import { parseVideoStartTime } from '#/lib/video-time.ts'
 import { memberSlug } from '#/lib/member-slug.ts'
 import { fetchViewerState } from '#/server/pages/viewer-fn.ts'
 import { pageHead } from '#/lib/seo.ts'
+import type { PageSeoImage } from '#/lib/seo.ts'
+import { probePngSize } from '#/server/media/image-size.ts'
 import type { VideoDetail } from '#/server/pages/video-detail.ts'
 
 // Matches the "További videók" grid inside the max-w-5xl content column.
@@ -32,7 +34,11 @@ const loadVideoDetail = createServerFn({ method: 'GET' })
     const db = await getDefaultDb()
     const detail = await getVideoDetail(db, viewer, slug)
     if (detail !== null) {
-      return { detail, redirectSlug: null as string | null }
+      return {
+        detail,
+        shareImage: await shareImage(detail),
+        redirectSlug: null as string | null,
+      }
     }
     // No public video at the current slug: try an old slug redirect.
     const resolution = await resolvePublicSlug(db, {
@@ -44,8 +50,25 @@ const loadVideoDetail = createServerFn({ method: 'GET' })
       resolution !== null && resolution.kind === 'redirect'
         ? resolution.canonicalSlug
         : null
-    return { detail: null, redirectSlug }
+    return { detail: null, shareImage: null, redirectSlug }
   })
+
+/**
+ * The keyframe for link previews, with its size so Facebook and Messenger can
+ * render it right away. `null` falls back to the site's default image: the
+ * list thumbnail (160×90) is below the minimum size of link previews
+ * (Facebook: 200×200), so they'd show no image at all.
+ */
+async function shareImage(detail: VideoDetail): Promise<PageSeoImage | null> {
+  if (detail.keyframeUrl === null) {
+    return null
+  }
+  const size = await probePngSize(detail.keyframeUrl)
+  if (size === null) {
+    return null
+  }
+  return { url: detail.keyframeUrl, ...size }
+}
 
 export const Route = createFileRoute('/videos/$slug')({
   validateSearch: (search: Record<string, unknown>): { t?: number } => ({
@@ -63,7 +86,7 @@ export const Route = createFileRoute('/videos/$slug')({
     if (result.detail === null) {
       throw notFound()
     }
-    return { detail: result.detail }
+    return { detail: result.detail, shareImage: result.shareImage }
   },
   head: ({ loaderData }) =>
     loaderData === undefined
@@ -72,11 +95,7 @@ export const Route = createFileRoute('/videos/$slug')({
           title: loaderData.detail.title,
           description: loaderData.detail.description,
           path: `/videos/${loaderData.detail.slug}`,
-          // The list thumbnail (160×90) is below the minimum size of link
-          // previews (Facebook: 200×200), so they'd show no image at all.
-          image:
-            loaderData.detail.keyframeUrl ?? loaderData.detail.thumbnailUrl,
-          type: 'video.other',
+          image: loaderData.shareImage,
           jsonLd: videoJsonLd(loaderData.detail),
         }),
   component: VideoDetailPage,

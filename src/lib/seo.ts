@@ -9,8 +9,11 @@ export const SITE_NAME = 'Budavári Schönherz Stúdió'
 export const DEFAULT_DESCRIPTION =
   'A Budavári Schönherz Stúdió a BME Schönherz Kollégium öntevékeny köre: videókat készítünk az egyetemi életről, rendezvényekről és a kollégium közösségéről.'
 
-/** Shared fallback image for link previews (1200×630). */
-const DEFAULT_IMAGE_PATH = '/og-default.png'
+const DEFAULT_IMAGE: PageSeoImage = {
+  url: '/og-default.png',
+  width: 1200,
+  height: 630,
+}
 
 const DESCRIPTION_MAX_LENGTH = 160
 
@@ -40,20 +43,25 @@ export function pagedPath(path: string, page: number | string | undefined) {
     : path
 }
 
+export interface PageSeoImage {
+  url: string
+  width?: number
+  height?: number
+}
+
 export interface PageSeo {
   /** Page title without the site name; omitted on the homepage. */
   title?: string
   description?: string | null
   /** Canonical path, starting with `/`. */
   path: string
-  image?: string | null
-  type?: 'website' | 'video.other' | 'profile'
+  image?: string | PageSeoImage | null
+  type?: 'website' | 'profile'
   twitterCard?: 'summary' | 'summary_large_image'
   jsonLd?: Array<Record<string, unknown>>
 }
 
 type MetaTag = ComponentProps<'meta'>
-
 
 function jsonLdTag(data: Record<string, unknown>): MetaTag {
   return { 'script:ld+json': data } as unknown as MetaTag
@@ -66,7 +74,11 @@ export function pageHead(seo: PageSeo) {
     seo.title === undefined ? SITE_NAME : `${seo.title} | ${SITE_NAME}`
   const description =
     toMetaDescription(seo.description) || toMetaDescription(DEFAULT_DESCRIPTION)
-  const image = new URL(seo.image ?? DEFAULT_IMAGE_PATH, origin).href
+  const image =
+    typeof seo.image === 'string'
+      ? { url: seo.image }
+      : (seo.image ?? DEFAULT_IMAGE)
+  const imageUrl = new URL(image.url, origin).href
 
   return {
     meta: [
@@ -78,7 +90,14 @@ export function pageHead(seo: PageSeo) {
       { property: 'og:title', content: seo.title ?? SITE_NAME },
       { property: 'og:description', content: description },
       { property: 'og:url', content: url },
-      { property: 'og:image', content: image },
+      { property: 'og:image', content: imageUrl },
+      ...(image.width !== undefined && image.height !== undefined
+        ? [
+            { property: 'og:image:width', content: String(image.width) },
+            { property: 'og:image:height', content: String(image.height) },
+          ]
+        : []),
+      { property: 'og:image:alt', content: seo.title ?? SITE_NAME },
       {
         name: 'twitter:card',
         content: seo.twitterCard ?? 'summary_large_image',

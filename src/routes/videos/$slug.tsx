@@ -68,7 +68,10 @@ export const Route = createFileRoute('/videos/$slug')({
           title: loaderData.detail.title,
           description: loaderData.detail.description,
           path: `/videos/${loaderData.detail.slug}`,
-          image: loaderData.detail.thumbnailUrl,
+          // The list thumbnail (160×90) is below the minimum size of link
+          // previews (Facebook: 200×200), so they'd show no image at all.
+          image:
+            loaderData.detail.keyframeUrl ?? loaderData.detail.thumbnailUrl,
           type: 'video.other',
           jsonLd: videoJsonLd(loaderData.detail),
         }),
@@ -76,9 +79,11 @@ export const Route = createFileRoute('/videos/$slug')({
 })
 
 function videoJsonLd(detail: VideoDetail): Array<Record<string, unknown>> {
-  const thumbnailUrl = detail.thumbnailUrl ?? detail.keyframeUrl
+  const thumbnailUrls = [detail.keyframeUrl, detail.thumbnailUrl].filter(
+    (url): url is string => url !== null,
+  )
   const uploadDate = detail.publishedAt?.toISOString() ?? detail.recordedAt
-  if (thumbnailUrl === null || uploadDate === null) {
+  if (thumbnailUrls.length === 0 || uploadDate === null) {
     return []
   }
   return [
@@ -87,7 +92,7 @@ function videoJsonLd(detail: VideoDetail): Array<Record<string, unknown>> {
       '@type': 'VideoObject',
       name: detail.title,
       description: detail.description ?? detail.title,
-      thumbnailUrl: [thumbnailUrl],
+      thumbnailUrl: thumbnailUrls,
       uploadDate,
       ...(detail.videoUrl !== null ? { contentUrl: detail.videoUrl } : {}),
       inLanguage: 'hu',

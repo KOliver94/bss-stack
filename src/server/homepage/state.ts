@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, lte, ne, sql } from 'drizzle-orm'
+import { and, desc, eq, gte, lte, ne, or, sql } from 'drizzle-orm'
 import { buildYoutubeNocookieEmbedUrl } from '#/server/media/youtube.ts'
 import { events, liveStreams, videos } from '#/db/schema.ts'
 import type { Executor } from '#/server/shared/db-executor.ts'
@@ -38,28 +38,23 @@ async function latestPublicEvents(
     .limit(limit)
 }
 
-/**
- * The next scheduled live starting within `withinMs`. With `graceMs`, a live
- * whose start time already passed but the runner hasn't activated yet still
- * counts as upcoming.
- */
+/** The next scheduled live starting within `withinMs`. */
 export async function getUpcomingLive(
   executor: Executor,
-  options: { now: Date; withinMs?: number; graceMs?: number },
+  options: { now: Date; withinMs?: number },
 ): Promise<{
   stream: typeof liveStreams.$inferSelect
   embedUrl: string
 } | null> {
   const withinMs = options.withinMs ?? 24 * 60 * 60 * 1000
   const horizon = new Date(options.now.getTime() + withinMs)
-  const earliest = new Date(options.now.getTime() - (options.graceMs ?? 0))
   const rows = await executor
     .select()
     .from(liveStreams)
     .where(
       and(
         eq(liveStreams.status, 'scheduled'),
-        gte(liveStreams.startsAt, earliest),
+        gte(liveStreams.startsAt, options.now),
         lte(liveStreams.startsAt, horizon),
       ),
     )
@@ -75,6 +70,11 @@ export async function getUpcomingLive(
   }
 }
 
+/**
+ * The live on air at `now`. The activation job runs only once a minute, so a
+ * schedule whose start time has passed already counts as on air; like the
+ * job, the latest due schedule supersedes the one currently running.
+ */
 export async function getActiveLive(
   executor: Executor,
   options: { now: Date },
@@ -84,11 +84,17 @@ export async function getActiveLive(
     .from(liveStreams)
     .where(
       and(
-        sql`${liveStreams.status} = 'active'`,
+        or(
+          eq(liveStreams.status, 'active'),
+          eq(liveStreams.status, 'scheduled'),
+        ),
         lte(liveStreams.startsAt, options.now),
       ),
     )
-    .orderBy(desc(liveStreams.activatedAt))
+    .orderBy(
+      sql`${liveStreams.status} = 'scheduled' desc`,
+      sql`coalesce(${liveStreams.activatedAt}, ${liveStreams.startsAt}) desc`,
+    )
     .limit(1)
   return rows.at(0)
 }

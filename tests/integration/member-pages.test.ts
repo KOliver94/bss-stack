@@ -191,7 +191,7 @@ describe.skipIf(!hasTestDatabase)('BSS-023: archív aloldal', () => {
 })
 
 describe.skipIf(!hasTestDatabase)('öregtagok aloldal', () => {
-  it('csak az ALUMNI státuszú tagok', async () => {
+  it('az ALUMNI és ACTIVE_ALUMNI státuszú tagok', async () => {
     const db = await setupDb()
     await seedMember(db, {
       sub: 'alumni-1',
@@ -212,7 +212,10 @@ describe.skipIf(!hasTestDatabase)('öregtagok aloldal', () => {
 
     const alumni = await getMemberArchivePage(db, 'alumni')
     expect(alumni.title).toBe('Öregtagok')
-    expect(alumni.items.map((member) => member.username)).toEqual(['oregtag'])
+    expect(alumni.items.map((member) => member.username).sort()).toEqual([
+      'aktiv-oregtag',
+      'oregtag',
+    ])
   })
 
   it('belépési év szerint csökkenően, azon belül név szerint', async () => {

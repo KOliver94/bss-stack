@@ -11,6 +11,7 @@ import { getCachedOobConfig } from '#/server/config/load.ts'
 import { fetchViewerState } from '#/server/pages/viewer-fn.ts'
 import { ErrorState, LoadingState } from '#/components/PageStates.tsx'
 import {
+  AdminDateTimeField,
   AdminPrimaryButton,
   AdminSecondaryButton,
   AdminTextArea,
@@ -545,9 +546,8 @@ function VideoEditor({
             onChange={(value) => patch({ recordedAt: value })}
             hint="Egynapos eseménynél automatikusan kitöltődik, ha üres."
           />
-          <AdminTextField
+          <AdminDateTimeField
             label="Feltöltés időpontja"
-            type="datetime-local"
             value={form.publishedAtLocal}
             onChange={(value) => patch({ publishedAtLocal: value })}
             hint="Üresen hagyva publikáláskor a mostani időpont kerül rá; csak múltbeli időpont adható meg."

@@ -137,7 +137,12 @@ export async function getAdminVideoList(
     .leftJoin(events, eq(events.id, videos.eventId))
     .leftJoin(memberCache, eq(memberCache.sub, videos.updatedBy))
     .where(where)
-    .orderBy(desc(videos.updatedAt), desc(videos.id))
+    // Newest upload first, so editing an uploaded video doesn't move it;
+    // drafts without an upload time sit among them by their last edit.
+    .orderBy(
+      sql`coalesce(${videos.publishedAt}, ${videos.updatedAt}) desc`,
+      desc(videos.id),
+    )
     .limit(query.perPage)
     .offset(offset)
 

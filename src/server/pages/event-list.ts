@@ -3,7 +3,10 @@ import type { Viewer } from '#/server/auth/viewer.ts'
 import { events, memberCache, videoStaff, videos } from '#/db/schema.ts'
 import type { Executor } from '#/server/shared/db-executor.ts'
 import { visibleVideoCondition } from '#/server/videos/visibility.ts'
-import { videoThumbnailUrl } from '#/server/media/video-media.ts'
+import {
+  videoAssetUrls,
+  videoThumbnailUrl,
+} from '#/server/media/video-media.ts'
 
 export const EVENT_PAGE_SIZES = [10, 25, 50, 100] as const
 export const DEFAULT_EVENT_PAGE_SIZE = 50
@@ -178,6 +181,7 @@ export interface EventDetailData {
       slug: string
       title: string
       thumbnailUrl: string | null
+      keyframeUrl: string | null
       recordedAt: string | null
     }>
     total: number
@@ -278,17 +282,21 @@ export async function getEventDetail(
     startDate: event.startDate,
     endDate: event.endDate,
     videos: {
-      items: videoRows.map((video) => ({
-        id: video.id,
-        slug: video.slug,
-        title: video.title,
-        thumbnailUrl: videoThumbnailUrl({
+      items: videoRows.map((video) => {
+        const { thumbnailUrl, keyframeUrl } = videoAssetUrls({
           ...video,
           hasHq: false,
           hasLq: false,
-        }),
-        recordedAt: video.recordedAt,
-      })),
+        })
+        return {
+          id: video.id,
+          slug: video.slug,
+          title: video.title,
+          thumbnailUrl,
+          keyframeUrl,
+          recordedAt: video.recordedAt,
+        }
+      }),
       total: countRows.at(0)?.count ?? 0,
     },
     staffMembers: staffRows.map((row) => ({

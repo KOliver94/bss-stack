@@ -1,4 +1,14 @@
-import { and, asc, desc, eq, isNotNull, isNull, or, sql } from 'drizzle-orm'
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  inArray,
+  isNotNull,
+  isNull,
+  or,
+  sql,
+} from 'drizzle-orm'
 import type { SQL } from 'drizzle-orm'
 import type { Viewer } from '#/server/auth/viewer.ts'
 import { formatAcademicSemester } from '#/server/members/member-fields.ts'
@@ -93,8 +103,9 @@ const ARCHIVE_TITLES: Record<ArchiveKind, string> = {
 
 const ARCHIVE_CONDITIONS: Record<ArchiveKind, SQL> = {
   archived: isNotNull(memberCache.archivedAt),
+  // Active alumni also keep their block on the active members page.
   alumni: and(
-    eq(memberCache.membershipStatus, 'ALUMNI'),
+    inArray(memberCache.membershipStatus, ['ALUMNI', 'ACTIVE_ALUMNI']),
     isNull(memberCache.archivedAt),
   )!,
 }

@@ -10,6 +10,7 @@ import type {
 } from '#/server/pages/homepage.ts'
 import { getDefaultDb } from '#/server/auth/session-store.ts'
 import { formatEventIntervalHu } from '#/lib/format-date.ts'
+import { liveRefetchInterval } from '#/lib/live-refetch.ts'
 import Thumbnail from '#/components/Thumbnail.tsx'
 import VideoDetailPlayer from '#/components/VideoDetailPlayer.tsx'
 import {
@@ -77,7 +78,8 @@ function HomePage() {
   const homeQuery = useQuery({
     queryKey: ['homepage'],
     queryFn: loadHomepage,
-    refetchInterval: 60_000,
+    refetchInterval: (query) =>
+      liveRefetchInterval(query.state.data?.upcomingLive?.startsAtIso),
   })
 
   if (homeQuery.isPending) {

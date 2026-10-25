@@ -19,7 +19,13 @@ import { parseVideoStartTime } from '#/lib/video-time.ts'
 import { memberSlug } from '#/lib/member-slug.ts'
 import { fetchViewerState } from '#/server/pages/viewer-fn.ts'
 import { pageHead } from '#/lib/seo.ts'
+import type { PageSeoImage } from '#/lib/seo.ts'
+import { probePngSize } from '#/server/media/image-size.ts'
 import type { VideoDetail } from '#/server/pages/video-detail.ts'
+
+// Matches the "További videók" grid inside the max-w-5xl content column.
+const RELATED_THUMBNAIL_SIZES =
+  '(min-width: 1024px) 307px, (min-width: 420px) calc((100vw - 4rem) / 2), calc(100vw - 2rem)'
 
 const loadVideoDetail = createServerFn({ method: 'GET' })
   .validator((slug: string) => slug)
@@ -28,7 +34,11 @@ const loadVideoDetail = createServerFn({ method: 'GET' })
     const db = await getDefaultDb()
     const detail = await getVideoDetail(db, viewer, slug)
     if (detail !== null) {
-      return { detail, redirectSlug: null as string | null }
+      return {
+        detail,
+        shareImage: await shareImage(detail),
+        redirectSlug: null as string | null,
+      }
     }
     // No public video at the current slug: try an old slug redirect.
     const resolution = await resolvePublicSlug(db, {
@@ -40,8 +50,25 @@ const loadVideoDetail = createServerFn({ method: 'GET' })
       resolution !== null && resolution.kind === 'redirect'
         ? resolution.canonicalSlug
         : null
-    return { detail: null, redirectSlug }
+    return { detail: null, shareImage: null, redirectSlug }
   })
+
+/**
+ * The keyframe for link previews, with its size so Facebook and Messenger can
+ * render it right away. `null` falls back to the site's default image: the
+ * list thumbnail (160×90) is below the minimum size of link previews
+ * (Facebook: 200×200), so they'd show no image at all.
+ */
+async function shareImage(detail: VideoDetail): Promise<PageSeoImage | null> {
+  if (detail.keyframeUrl === null) {
+    return null
+  }
+  const size = await probePngSize(detail.keyframeUrl)
+  if (size === null) {
+    return null
+  }
+  return { url: detail.keyframeUrl, ...size }
+}
 
 export const Route = createFileRoute('/videos/$slug')({
   validateSearch: (search: Record<string, unknown>): { t?: number } => ({
@@ -59,7 +86,7 @@ export const Route = createFileRoute('/videos/$slug')({
     if (result.detail === null) {
       throw notFound()
     }
-    return { detail: result.detail }
+    return { detail: result.detail, shareImage: result.shareImage }
   },
   head: ({ loaderData }) =>
     loaderData === undefined
@@ -68,17 +95,18 @@ export const Route = createFileRoute('/videos/$slug')({
           title: loaderData.detail.title,
           description: loaderData.detail.description,
           path: `/videos/${loaderData.detail.slug}`,
-          image: loaderData.detail.thumbnailUrl,
-          type: 'video.other',
+          image: loaderData.shareImage,
           jsonLd: videoJsonLd(loaderData.detail),
         }),
   component: VideoDetailPage,
 })
 
 function videoJsonLd(detail: VideoDetail): Array<Record<string, unknown>> {
-  const thumbnailUrl = detail.thumbnailUrl ?? detail.keyframeUrl
+  const thumbnailUrls = [detail.keyframeUrl, detail.thumbnailUrl].filter(
+    (url): url is string => url !== null,
+  )
   const uploadDate = detail.publishedAt?.toISOString() ?? detail.recordedAt
-  if (thumbnailUrl === null || uploadDate === null) {
+  if (thumbnailUrls.length === 0 || uploadDate === null) {
     return []
   }
   return [
@@ -87,7 +115,7 @@ function videoJsonLd(detail: VideoDetail): Array<Record<string, unknown>> {
       '@type': 'VideoObject',
       name: detail.title,
       description: detail.description ?? detail.title,
-      thumbnailUrl: [thumbnailUrl],
+      thumbnailUrl: thumbnailUrls,
       uploadDate,
       ...(detail.videoUrl !== null ? { contentUrl: detail.videoUrl } : {}),
       inLanguage: 'hu',
@@ -253,7 +281,12 @@ function VideoDetailPage() {
                   params={{ slug: related.slug }}
                   className="group card-surface hover-lift block shadow-[0px_2px_6px_0_rgba(0,0,0,0.25)]"
                 >
-                  <Thumbnail src={related.thumbnailUrl} alt={related.title} />
+                  <Thumbnail
+                    src={related.thumbnailUrl}
+                    largeSrc={related.keyframeUrl}
+                    sizes={RELATED_THUMBNAIL_SIZES}
+                    alt={related.title}
+                  />
                   <span className="block truncate px-2 py-1 text-(--bss-text-secondary) group-hover:text-(--orange)">
                     {related.title}
                   </span>

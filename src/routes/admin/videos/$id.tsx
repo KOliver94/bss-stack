@@ -11,6 +11,7 @@ import { getCachedOobConfig } from '#/server/config/load.ts'
 import { fetchViewerState } from '#/server/pages/viewer-fn.ts'
 import { ErrorState, LoadingState } from '#/components/PageStates.tsx'
 import {
+  AdminDateTimeField,
   AdminPrimaryButton,
   AdminSecondaryButton,
   AdminTextArea,
@@ -24,6 +25,7 @@ import {
   ValidationProblems,
 } from '#/components/admin/Alerts.tsx'
 import { AdminSearchSelect } from '#/components/admin/SearchSelect.tsx'
+import { StaffListEditor } from '#/components/admin/StaffListEditor.tsx'
 import { VideoVisibility } from '#/components/admin/VideoVisibility.tsx'
 import { postJson } from '#/lib/admin-api.ts'
 import { VISIBILITY_OPTIONS, videoStatusLabel } from '#/lib/admin-labels.ts'
@@ -545,9 +547,8 @@ function VideoEditor({
             onChange={(value) => patch({ recordedAt: value })}
             hint="Egynapos eseménynél automatikusan kitöltődik, ha üres."
           />
-          <AdminTextField
+          <AdminDateTimeField
             label="Feltöltés időpontja"
-            type="datetime-local"
             value={form.publishedAtLocal}
             onChange={(value) => patch({ publishedAtLocal: value })}
             hint="Üresen hagyva publikáláskor a mostani időpont kerül rá; csak múltbeli időpont adható meg."
@@ -563,7 +564,8 @@ function VideoEditor({
         busy={busy}
       />
 
-      <StaffSection
+      <StaffListEditor
+        title="Stáblista"
         roles={options.staffRoles}
         members={options.members}
         assignments={staff}
@@ -689,98 +691,6 @@ function TagSection({
       <div>
         <AdminPrimaryButton onClick={onSave} disabled={busy}>
           Címkék mentése
-        </AdminPrimaryButton>
-      </div>
-    </section>
-  )
-}
-
-function StaffSection({
-  roles,
-  members,
-  assignments,
-  onChange,
-  onSave,
-  busy,
-}: {
-  roles: Array<{ id: string; name: string }>
-  members: Array<{ sub: string; fullName: string }>
-  assignments: Array<{ roleId: string; memberSub: string }>
-  onChange: (assignments: Array<{ roleId: string; memberSub: string }>) => void
-  onSave: () => void
-  busy: boolean
-}) {
-  const roleOptions: Array<SearchSelectOption> = roles.map((role) => ({
-    value: role.id,
-    label: role.name,
-  }))
-  const memberOptions: Array<SearchSelectOption> = members.map((member) => ({
-    value: member.sub,
-    label: member.fullName,
-  }))
-
-  return (
-    <section className="flex flex-col gap-3 rounded border border-(--nav-border-b) p-4">
-      <h2 className="font-bold text-(--bss-text)">Stáblista</h2>
-      {assignments.length === 0 && (
-        <p className="text-sm text-(--bss-text-secondary)">
-          Még nincs stábtag hozzárendelve.
-        </p>
-      )}
-      {assignments.map((assignment, index) => (
-        <div
-          key={index}
-          className="grid items-end gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]"
-        >
-          <AdminSearchSelect
-            label="Szerep"
-            value={assignment.roleId}
-            onChange={(roleId) =>
-              onChange(
-                assignments.map((item, i) =>
-                  i === index ? { ...item, roleId } : item,
-                ),
-              )
-            }
-            options={roleOptions}
-            placeholder="Válassz szerepet…"
-            searchPlaceholder="Szerep keresése…"
-          />
-          <AdminSearchSelect
-            label="Tag"
-            value={assignment.memberSub}
-            onChange={(memberSub) =>
-              onChange(
-                assignments.map((item, i) =>
-                  i === index ? { ...item, memberSub } : item,
-                ),
-              )
-            }
-            options={memberOptions}
-            placeholder="Válassz tagot…"
-            searchPlaceholder="Tag keresése…"
-          />
-          <AdminSecondaryButton
-            onClick={() => onChange(assignments.filter((_, i) => i !== index))}
-          >
-            Eltávolítás
-          </AdminSecondaryButton>
-        </div>
-      ))}
-      <div className="flex flex-wrap gap-2">
-        <AdminSecondaryButton
-          disabled={roles.length === 0 || members.length === 0}
-          onClick={() =>
-            onChange([
-              ...assignments,
-              { roleId: roles[0]?.id ?? '', memberSub: members[0]?.sub ?? '' },
-            ])
-          }
-        >
-          + Stábtag hozzáadása
-        </AdminSecondaryButton>
-        <AdminPrimaryButton onClick={onSave} disabled={busy}>
-          Stáblista mentése
         </AdminPrimaryButton>
       </div>
     </section>

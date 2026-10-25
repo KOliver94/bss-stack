@@ -30,7 +30,7 @@ const ADMIN_VIDEO_ACTION_PATTERN =
   /^\/api\/admin\/videos\/([0-9a-f-]+)\/(update|publish|archive|trash|restore|tags|staff|related)$/
 
 const ADMIN_EVENT_ACTION_PATTERN =
-  /^\/api\/admin\/events\/([0-9a-f-]+)\/(update|publish|archive|delete_permanent)$/
+  /^\/api\/admin\/events\/([0-9a-f-]+)\/(update|publish|archive|staff|delete_permanent)$/
 
 const WEBHOOK_CLIENT_ACTION_PATTERN =
   /^\/api\/admin\/webhook-clients\/([0-9a-f-]+)\/(rotate|revoke|delete)$/

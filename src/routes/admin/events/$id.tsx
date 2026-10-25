@@ -6,8 +6,11 @@ import {
 } from '@tanstack/react-router'
 import { createServerFn } from '@tanstack/react-start'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { useEffect, useState } from 'react'
-import { getAdminEventDetail } from '#/server/admin/event-list.ts'
+import { useEffect, useRef, useState } from 'react'
+import {
+  getAdminEventDetail,
+  getAdminEventEditorOptions,
+} from '#/server/admin/event-list.ts'
 import { getDefaultDb } from '#/server/auth/session-store.ts'
 import { allowedMediaHosts } from '#/server/media/allowed-hosts.ts'
 import { fetchViewerState } from '#/server/pages/viewer-fn.ts'
@@ -25,17 +28,26 @@ import {
   ValidationProblems,
   WarningList,
 } from '#/components/admin/Alerts.tsx'
+import { StaffListEditor } from '#/components/admin/StaffListEditor.tsx'
 import { postJson } from '#/lib/admin-api.ts'
 import { eventStatusLabel } from '#/lib/admin-labels.ts'
 import { mediaUrlWarning } from '#/lib/media-url.ts'
-import type { AdminEventDetail } from '#/server/admin/event-list.ts'
+import type {
+  AdminEventDetail,
+  AdminEventEditorOptions,
+} from '#/server/admin/event-list.ts'
+
+/** Role offered first for a new crew row, as on the legacy site. */
+const EVENT_CREW_ROLE_NAME = 'Esemény stábtag'
 
 const loadAdminEventEditor = createServerFn({ method: 'GET' })
   .validator((input: unknown) => input as { id: string })
   .handler(async ({ data }) => {
     const db = await getDefaultDb()
     const detail = await getAdminEventDetail(db, data.id)
-    return { detail, mediaAllowedHosts: allowedMediaHosts() }
+    const options =
+      detail === null ? null : await getAdminEventEditorOptions(db, data.id)
+    return { detail, options, mediaAllowedHosts: allowedMediaHosts() }
   })
 
 export const Route = createFileRoute('/admin/events/$id')({
@@ -68,8 +80,8 @@ function AdminEventEditorPage() {
       <ErrorState label="Hiba történt az esemény betöltése közben. Próbáld újra később." />
     )
   }
-  const detail = editorQuery.data.detail
-  if (detail === null) {
+  const { detail, options } = editorQuery.data
+  if (detail === null || options === null) {
     throw notFound()
   }
 
@@ -77,6 +89,7 @@ function AdminEventEditorPage() {
     <EventEditor
       key={`${detail.id}-${detail.version}`}
       detail={detail}
+      options={options}
       mediaAllowedHosts={editorQuery.data.mediaAllowedHosts}
       isLeadership={viewerQuery.data?.level === 'leadership'}
       onReload={() =>
@@ -88,11 +101,13 @@ function AdminEventEditorPage() {
 
 function EventEditor({
   detail,
+  options,
   mediaAllowedHosts,
   isLeadership,
   onReload,
 }: {
   detail: AdminEventDetail
+  options: AdminEventEditorOptions
   mediaAllowedHosts: string[]
   isLeadership: boolean
   onReload: () => Promise<unknown>
@@ -107,6 +122,11 @@ function EventEditor({
     endDate: detail.endDate ?? '',
   })
   const [version, setVersion] = useState(detail.version)
+  // Sequential saves (see saveAll) need the latest version before re-render.
+  const versionRef = useRef(detail.version)
+  const [staff, setStaff] = useState<
+    Array<{ roleId: string; memberSub: string }>
+  >(detail.staffAssignments)
   const [busy, setBusy] = useState(false)
   const [problems, setProblems] = useState<string[]>([])
   const [message, setMessage] = useState<string | null>(null)
@@ -116,9 +136,18 @@ function EventEditor({
   const [deleteConfirmation, setDeleteConfirmation] = useState('')
   const [deleteSummary, setDeleteSummary] = useState<string | null>(null)
 
-  // Capture the initial state only at load time (the key re-mounts it).
-  const [initialSnapshot] = useState(() => JSON.stringify(form))
-  const isDirty = JSON.stringify(form) !== initialSnapshot
+  const [savedFormSnapshot, setSavedFormSnapshot] = useState(() =>
+    JSON.stringify(form),
+  )
+  const [savedStaffSnapshot, setSavedStaffSnapshot] = useState(() =>
+    JSON.stringify(detail.staffAssignments),
+  )
+  const formDirty = JSON.stringify(form) !== savedFormSnapshot
+  const staffDirty = JSON.stringify(staff) !== savedStaffSnapshot
+  const isDirty = formDirty || staffDirty
+  const crewRoleId = options.staffRoles.find(
+    (role) => role.name === EVENT_CREW_ROLE_NAME,
+  )?.id
 
   useEffect(() => {
     if (!isDirty) return
@@ -156,14 +185,24 @@ function EventEditor({
       version?: number
       slug?: string
       detachedVideoCount?: number
-    }>(`/api/admin/events/${detail.id}/${action}`, { version, ...body })
+    }>(`/api/admin/events/${detail.id}/${action}`, {
+      version: versionRef.current,
+      ...body,
+    })
     setBusy(false)
     if (result.ok) {
       if (typeof result.data.version === 'number') {
+        versionRef.current = result.data.version
         setVersion(result.data.version)
       }
-      if (result.data.slug !== undefined && result.data.slug !== form.slug) {
-        patch({ slug: result.data.slug })
+      const savedSlug = result.data.slug ?? form.slug
+      if (savedSlug !== form.slug) {
+        patch({ slug: savedSlug })
+      }
+      if (action === 'update') {
+        setSavedFormSnapshot(JSON.stringify({ ...form, slug: savedSlug }))
+      } else if (action === 'staff') {
+        setSavedStaffSnapshot(JSON.stringify(staff))
       }
       if (
         typeof result.data.detachedVideoCount === 'number' &&
@@ -195,12 +234,35 @@ function EventEditor({
     return false
   }
 
-  async function saveDraft(): Promise<boolean> {
-    return call('update', form, 'Piszkozat elmentve.')
+  async function saveDraft(
+    successMessage = 'Piszkozat elmentve.',
+  ): Promise<boolean> {
+    return call('update', form, successMessage)
+  }
+
+  async function saveStaff(
+    successMessage = 'Közreműködők elmentve.',
+  ): Promise<boolean> {
+    return call('staff', { assignments: staff }, successMessage)
+  }
+
+  /** The bottom save button saves every section with unsaved changes. */
+  async function saveAll() {
+    const pending = [
+      { dirty: staffDirty, save: saveStaff },
+      { dirty: formDirty, save: saveDraft },
+    ].filter((item) => item.dirty)
+    for (const [index, item] of pending.entries()) {
+      const isLast = index === pending.length - 1
+      const saved = await item.save(
+        isLast && pending.length > 1 ? 'Minden változás elmentve.' : undefined,
+      )
+      if (!saved) return
+    }
   }
 
   async function publish() {
-    if (isDirty && !(await saveDraft())) return
+    if (formDirty && !(await saveDraft())) return
     await call('publish', {}, 'Esemény publikálva.')
   }
 
@@ -290,6 +352,17 @@ function EventEditor({
         />
       </section>
 
+      <StaffListEditor
+        title="Közreműködők"
+        roles={options.staffRoles}
+        members={options.members}
+        assignments={staff}
+        defaultRoleId={crewRoleId}
+        onChange={setStaff}
+        onSave={() => void saveStaff()}
+        busy={busy}
+      />
+
       <section className="flex flex-wrap gap-2 rounded border border-(--nav-border-b) p-4">
         {detail.status !== 'published' && (
           <AdminPrimaryButton onClick={() => void publish()} disabled={busy}>
@@ -337,7 +410,7 @@ function EventEditor({
 
       <div className="sticky bottom-0 flex flex-wrap items-center gap-3 border-t border-(--nav-border-b) bg-(--bg) py-3">
         <AdminPrimaryButton
-          onClick={() => void saveDraft()}
+          onClick={() => void saveAll()}
           disabled={busy || !isDirty}
         >
           Piszkozat mentése

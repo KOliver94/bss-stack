@@ -1,11 +1,17 @@
-import { desc, eq, sql } from 'drizzle-orm'
+import { desc, eq, inArray, sql } from 'drizzle-orm'
 import type { MediaConfig } from '#/server/media/validator.ts'
 import type { Clock } from '#/lib/clock.ts'
 import { systemClock } from '#/lib/clock.ts'
 import { can } from '#/server/auth/policy.ts'
 import { ForbiddenError } from '#/server/auth/guards.ts'
 import type { Viewer } from '#/server/auth/viewer.ts'
-import { events, slugHistory, videos } from '#/db/schema.ts'
+import {
+  eventStaff,
+  events,
+  slugHistory,
+  staffRoles,
+  videos,
+} from '#/db/schema.ts'
 import type { Executor } from '#/server/shared/db-executor.ts'
 import {
   TEXT_LIMITS,
@@ -429,6 +435,101 @@ export async function permanentlyDeleteEvent(
       occurredAt: (deps.clock ?? systemClock).now(),
     })
     return { detachedVideoIds }
+  })
+}
+
+export interface EventStaffAssignment {
+  roleId: string
+  memberSub: string
+}
+
+/** Replace the event crew list: one role with several members, one member with several roles. */
+export async function setEventStaff(
+  executor: Executor,
+  deps: EventDeps,
+  eventId: string,
+  expectedVersion: number,
+  assignments: readonly EventStaffAssignment[],
+): Promise<typeof events.$inferSelect> {
+  if (!can.manageVideoStaffList(deps.viewer)) {
+    throw new ForbiddenError(
+      'A stáblista kezelése csak bejelentkezett BSS-tagnek engedélyezett.',
+    )
+  }
+
+  return executor.transaction(async (tx) => {
+    const locked = await lockEvent(tx, eventId)
+    if (locked.version !== expectedVersion) {
+      throw new StaleWriteError('esemény')
+    }
+
+    const roleIds = [...new Set(assignments.map((a) => a.roleId))]
+    if (roleIds.length > 0) {
+      const existingRoles = await tx
+        .select({ id: staffRoles.id })
+        .from(staffRoles)
+        .where(inArray(staffRoles.id, roleIds))
+      if (existingRoles.length !== roleIds.length) {
+        throw new TextValidationError([
+          'Ismeretlen stábszerep szerepel a listában.',
+        ])
+      }
+    }
+
+    const deduped: EventStaffAssignment[] = []
+    for (const assignment of assignments) {
+      if (
+        !deduped.some(
+          (a) =>
+            a.roleId === assignment.roleId &&
+            a.memberSub === assignment.memberSub,
+        )
+      ) {
+        deduped.push(assignment)
+      }
+    }
+
+    const beforeList = await tx
+      .select({ roleId: eventStaff.roleId, memberSub: eventStaff.memberSub })
+      .from(eventStaff)
+      .where(eq(eventStaff.eventId, eventId))
+
+    await tx.delete(eventStaff).where(eq(eventStaff.eventId, eventId))
+    if (deduped.length > 0) {
+      await tx.insert(eventStaff).values(
+        deduped.map((a) => ({
+          eventId,
+          roleId: a.roleId,
+          memberSub: a.memberSub,
+        })),
+      )
+    }
+
+    const now = (deps.clock ?? systemClock).now()
+    const updated = await tx
+      .update(events)
+      .set({
+        version: locked.version + 1,
+        updatedAt: now,
+        updatedBy: deps.viewer.sub,
+      })
+      .where(eq(events.id, eventId))
+      .returning()
+    const row = updated.at(0)
+    if (row === undefined) {
+      throw new EntityNotFoundError('event', eventId)
+    }
+
+    await writeAudit(tx, {
+      actor: deps.viewer.sub ?? '',
+      entityType: 'event',
+      entityId: eventId,
+      action: 'assign_staff',
+      before: { staff: beforeList },
+      after: { staff: deduped },
+      occurredAt: now,
+    })
+    return row
   })
 }
 

@@ -147,6 +147,8 @@ export function AdminSearchSelect({
           aria-haspopup="listbox"
           aria-controls={listboxId}
           aria-labelledby={label !== undefined ? labelId : undefined}
+          // The selected label may be cut off; hovering shows it in full.
+          title={selectedLabel ?? undefined}
           disabled={disabled}
           onClick={() => {
             setQuery('')
@@ -229,7 +231,10 @@ export function AdminSearchSelect({
                           aria-hidden="true"
                         />
                       )}
-                      <span className="min-w-0 truncate">{option.label}</span>
+                      {/* Long labels wrap so the full text stays readable. */}
+                      <span className="min-w-0 break-words">
+                        {option.label}
+                      </span>
                       {option.meta !== undefined && (
                         <span className="ml-2 shrink-0 text-xs opacity-70">
                           {option.meta}

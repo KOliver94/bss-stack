@@ -10,6 +10,7 @@ import { fetchViewerState } from '#/server/pages/viewer-fn.ts'
 import { fetchLiveBadge } from '#/server/pages/live-badge-fn.ts'
 import type { LiveBadgeDto } from '#/server/pages/live-badge-fn.ts'
 import { formatTimeHu } from '#/lib/format-date.ts'
+import { liveRefetchInterval } from '#/lib/live-refetch.ts'
 
 const NAV_LINKS = [
   { to: '/videos', label: 'Videók' },
@@ -17,6 +18,7 @@ const NAV_LINKS = [
   { to: '/members', label: 'Tagok' },
   { href: 'https://tanfolyam.bsstudio.hu/', label: 'Tanfolyamok' },
   { to: '/about', label: 'Mivel foglalkozunk?' },
+  { to: '/contact', label: 'Kapcsolat' },
 ] as const
 
 export default function Navbar() {
@@ -31,7 +33,12 @@ export default function Navbar() {
   const liveBadgeQuery = useQuery({
     queryKey: ['live-badge'],
     queryFn: fetchLiveBadge,
-    refetchInterval: 60_000,
+    refetchInterval: (query) => {
+      const badge = query.state.data
+      return liveRefetchInterval(
+        badge?.status === 'upcoming' ? badge.startsAtIso : null,
+      )
+    },
   })
   const liveBadge = liveBadgeLabel(liveBadgeQuery.data)
 

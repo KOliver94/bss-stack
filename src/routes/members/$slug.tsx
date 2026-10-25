@@ -247,7 +247,7 @@ function MemberProfilePage() {
 
         {rows.length === 0 ? (
           <p className="py-6 text-(--bss-text-secondary)">
-            Ehhez a taghoz jelenleg nincs megtekinthető videó.
+            Ehhez a taghoz jelenleg nincs megtekinthető tevékenység.
           </p>
         ) : view === 'year' ? (
           <div>
@@ -264,7 +264,7 @@ function MemberProfilePage() {
                     <p className="text-sm font-semibold text-(--orange)">
                       {group.roleName}
                     </p>
-                    <VideoList videos={group.videos} />
+                    <ActivityList rows={group.videos} />
                   </div>
                 ))}
               </div>
@@ -281,7 +281,7 @@ function MemberProfilePage() {
                   {group.roleName}
                 </h3>
                 <div className="pl-8 pr-4 pb-3">
-                  <VideoList videos={group.videos} />
+                  <ActivityList rows={group.videos} />
                 </div>
               </div>
             ))}
@@ -302,24 +302,36 @@ function MemberProfilePage() {
   )
 }
 
-function VideoList({ videos }: { videos: Array<ActivityRow> }) {
+function ActivityList({ rows }: { rows: Array<ActivityRow> }) {
+  const linkClassName =
+    'min-w-0 truncate font-semibold text-(--bss-text-secondary) underline hover:text-(--orange)'
   return (
     <ul className="space-y-1">
-      {videos.map((video) => (
+      {rows.map((row) => (
         <li
-          key={`${video.videoId}`}
+          key={`${row.kind}-${row.id}`}
           className="flex items-baseline justify-between gap-4"
         >
-          <Link
-            to="/videos/$slug"
-            params={{ slug: video.slug }}
-            className="min-w-0 truncate font-semibold text-(--bss-text-secondary) underline hover:text-(--orange)"
-          >
-            {video.title}
-          </Link>
+          {row.kind === 'event' ? (
+            <Link
+              to="/events/$slug"
+              params={{ slug: row.slug }}
+              className={linkClassName}
+            >
+              {row.title}
+            </Link>
+          ) : (
+            <Link
+              to="/videos/$slug"
+              params={{ slug: row.slug }}
+              className={linkClassName}
+            >
+              {row.title}
+            </Link>
+          )}
           <span className="whitespace-nowrap text-sm font-semibold text-(--members-data)">
-            {video.recordedAt !== null
-              ? formatCalendarDateHu(video.recordedAt)
+            {row.recordedAt !== null
+              ? formatCalendarDateHu(row.recordedAt)
               : 'Dátum nélkül'}
           </span>
         </li>

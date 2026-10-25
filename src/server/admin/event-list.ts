@@ -1,6 +1,24 @@
-import { and, desc, eq, gte, ilike, lte, or, sql } from 'drizzle-orm'
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  gte,
+  ilike,
+  inArray,
+  isNull,
+  lte,
+  or,
+  sql,
+} from 'drizzle-orm'
 import type { SQL } from 'drizzle-orm'
-import { events, memberCache, videos } from '#/db/schema.ts'
+import {
+  eventStaff,
+  events,
+  memberCache,
+  staffRoles,
+  videos,
+} from '#/db/schema.ts'
 import type { Executor } from '#/server/shared/db-executor.ts'
 
 const EVENT_STATUSES = ['draft', 'published', 'archived'] as const
@@ -137,6 +155,7 @@ export interface AdminEventDetail {
   updatedByName: string | null
   /** For the hard-delete preview: how many videos will be detached. */
   attachedVideoIds: string[]
+  staffAssignments: Array<{ roleId: string; memberSub: string }>
 }
 
 export async function getAdminEventDetail(
@@ -165,9 +184,63 @@ export async function getAdminEventDetail(
   if (row === undefined) {
     return null
   }
-  const attached = await executor
-    .select({ id: videos.id })
-    .from(videos)
-    .where(eq(videos.eventId, eventId))
-  return { ...row, attachedVideoIds: attached.map((item) => item.id) }
+  const [attached, staffRows] = await Promise.all([
+    executor
+      .select({ id: videos.id })
+      .from(videos)
+      .where(eq(videos.eventId, eventId)),
+    executor
+      .select({ roleId: eventStaff.roleId, memberSub: eventStaff.memberSub })
+      .from(eventStaff)
+      .innerJoin(staffRoles, eq(staffRoles.id, eventStaff.roleId))
+      .innerJoin(memberCache, eq(memberCache.sub, eventStaff.memberSub))
+      .where(eq(eventStaff.eventId, eventId))
+      .orderBy(
+        asc(staffRoles.displayOrder),
+        asc(staffRoles.name),
+        asc(memberCache.fullName),
+      ),
+  ])
+  return {
+    ...row,
+    attachedVideoIds: attached.map((item) => item.id),
+    staffAssignments: staffRows,
+  }
+}
+
+export interface AdminEventEditorOptions {
+  staffRoles: Array<{ id: string; name: string }>
+  members: Array<{ sub: string; fullName: string }>
+}
+
+/**
+ * Choices for the crew editor: every role, and the non-archived members plus
+ * anyone already credited (legacy crews include archived members).
+ */
+export async function getAdminEventEditorOptions(
+  executor: Executor,
+  eventId: string,
+): Promise<AdminEventEditorOptions> {
+  const assignedSubs = executor
+    .select({ sub: eventStaff.memberSub })
+    .from(eventStaff)
+    .where(eq(eventStaff.eventId, eventId))
+  const [roleRows, memberRows] = await Promise.all([
+    executor
+      .select({ id: staffRoles.id, name: staffRoles.name })
+      .from(staffRoles)
+      .orderBy(asc(staffRoles.displayOrder), asc(staffRoles.name)),
+    executor
+      .select({ sub: memberCache.sub, fullName: memberCache.fullName })
+      .from(memberCache)
+      .where(
+        or(
+          isNull(memberCache.archivedAt),
+          inArray(memberCache.sub, assignedSubs),
+        ),
+      )
+      .orderBy(asc(memberCache.fullName))
+      .limit(2000),
+  ])
+  return { staffRoles: roleRows, members: memberRows }
 }

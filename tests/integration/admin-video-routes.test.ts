@@ -550,6 +550,46 @@ describe.skipIf(!hasTestDatabase)('BSS-028: admin lista szűrők', () => {
     expect(byTag.items.map((item) => item.slug)).toEqual(['lista-publikus'])
   })
 
+  it('a lista feltöltési idő szerint rendez, a piszkozat a módosítása szerint kerül közéjük', async () => {
+    const ctx = await setupAdminApiTest('bss vidorder')
+    await ctx.db.insert(videos).values([
+      {
+        slug: 'sorrend-regi',
+        title: 'Régi feltöltés',
+        status: 'published',
+        visibility: 'public',
+        publishedAt: new Date('2025-01-01T10:00:00Z'),
+        updatedAt: new Date('2026-09-01T10:00:00Z'),
+      },
+      {
+        slug: 'sorrend-uj',
+        title: 'Új feltöltés',
+        status: 'published',
+        visibility: 'public',
+        publishedAt: new Date('2026-03-01T10:00:00Z'),
+        updatedAt: new Date('2026-03-01T10:00:00Z'),
+      },
+      {
+        slug: 'sorrend-draft',
+        title: 'Piszkozat',
+        status: 'draft',
+        visibility: 'bss',
+        updatedAt: new Date('2025-06-01T10:00:00Z'),
+      },
+    ])
+
+    const list = await getAdminVideoList(ctx.db, {
+      page: 1,
+      perPage: 25,
+      filters: parseAdminVideoFilters({}),
+    })
+    expect(list.items.map((item) => item.slug)).toEqual([
+      'sorrend-uj',
+      'sorrend-draft',
+      'sorrend-regi',
+    ])
+  })
+
   it('a részletmodul az összes mezőt és kapcsolatot betölti; ismeretlen id-re null', async () => {
     const ctx = await setupAdminApiTest('bss viddetail')
     const rows = await ctx.db

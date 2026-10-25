@@ -8,6 +8,7 @@ import { getHomepageAdminData } from '#/server/admin/homepage-admin.ts'
 import { fetchViewerState } from '#/server/pages/viewer-fn.ts'
 import { ErrorState, LoadingState } from '#/components/PageStates.tsx'
 import {
+  AdminDateTimeField,
   AdminPrimaryButton,
   AdminSecondaryButton,
   AdminTextField,
@@ -234,13 +235,12 @@ function LiveFields({
           </p>
         )}
       </div>
-      <AdminTextField
+      <AdminDateTimeField
         label="Kezdési idő"
-        type="datetime-local"
         value={startsAt}
         onChange={onStartsAtChange}
         required
-        hint="A kezdési időben magától elindul (legfeljebb egy perc késéssel), és a „Lezárás most” gombig fut."
+        hint="A kezdési időben magától elindul, és a „Lezárás most” gombig fut."
       />
     </>
   )

@@ -1,8 +1,13 @@
 export interface ActivityRow {
-  videoId: string
+  /** A credit on a video, or a crew credit on a whole event. */
+  kind: 'video' | 'event'
+  id: string
   slug: string
   title: string
-  /** Calendar date (`YYYY-MM-DD` or null); sorting: descending, missing values last. */
+  /**
+   * Calendar date (`YYYY-MM-DD` or null): the recording date of a video, the
+   * start date of an event; sorting: descending, missing values last.
+   */
   recordedAt: string | null
   year: number | null
   roles: string[]

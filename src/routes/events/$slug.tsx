@@ -5,6 +5,8 @@ import {
   redirect,
 } from '@tanstack/react-router'
 import { createServerFn } from '@tanstack/react-start'
+import { useQuery } from '@tanstack/react-query'
+import { Pencil } from 'lucide-react'
 import { getRequest } from '@tanstack/react-start/server'
 import { resolveViewerStateFromRequest } from '#/server/pages/viewer.ts'
 import { getDefaultDb } from '#/server/auth/session-store.ts'
@@ -17,6 +19,11 @@ import {
 import Thumbnail from '#/components/Thumbnail.tsx'
 import { memberSlug } from '#/lib/member-slug.ts'
 import { pageHead, pagedPath } from '#/lib/seo.ts'
+import { fetchViewerState } from '#/server/pages/viewer-fn.ts'
+
+// Same grid as /videos, so the browser picks the keyframe at card size.
+const VIDEO_THUMBNAIL_SIZES =
+  '(min-width: 1024px) min(calc((100vw - 6rem) / 5), 295px), (min-width: 640px) calc((100vw - 4rem) / 3), calc((100vw - 3rem) / 2)'
 
 const loadEventDetail = createServerFn({ method: 'GET' })
   .validator((input: { slug: string; page?: number }) => input)
@@ -90,6 +97,13 @@ export const Route = createFileRoute('/events/$slug')({
 
 function EventDetailPageComponent() {
   const { detail } = Route.useLoaderData()
+  const viewerQuery = useQuery({
+    queryKey: ['viewer'],
+    queryFn: fetchViewerState,
+    staleTime: 60_000,
+  })
+  const canEdit =
+    viewerQuery.data?.loggedIn === true && viewerQuery.data.canAccessAdmin
 
   return (
     <main className="site-width my-[4dvh]">
@@ -109,6 +123,16 @@ function EventDetailPageComponent() {
             <p className="mt-2 text-(--bss-text-secondary)">
               {formatEventIntervalHu(detail.startDate, detail.endDate)}
             </p>
+          )}
+          {canEdit && (
+            <Link
+              to="/admin/events/$id"
+              params={{ id: detail.id }}
+              className="mt-4 inline-flex items-center gap-2 bg-(--orange) px-4 py-2 text-sm font-bold text-white hover:opacity-90"
+            >
+              <Pencil aria-hidden="true" className="h-4 w-4" />
+              Szerkesztés
+            </Link>
           )}
           {detail.description !== null && (
             <p className="mt-4 whitespace-pre-line">{detail.description}</p>
@@ -155,7 +179,12 @@ function EventDetailPageComponent() {
                   params={{ slug: video.slug }}
                   className="group card-surface hover-lift block shadow-[0px_2px_6px_0_rgba(0,0,0,0.25)]"
                 >
-                  <Thumbnail src={video.thumbnailUrl} alt={video.title} />
+                  <Thumbnail
+                    src={video.thumbnailUrl}
+                    largeSrc={video.keyframeUrl}
+                    sizes={VIDEO_THUMBNAIL_SIZES}
+                    alt={video.title}
+                  />
                   <span className="block truncate px-2 py-1 text-(--bss-text-secondary) group-hover:text-(--orange)">
                     {video.title}
                   </span>

@@ -9,12 +9,6 @@ export type LiveBadgeDto =
   | { status: 'upcoming'; startsAtIso: string }
   | { status: 'none' }
 
-/**
- * The activation job runs once a minute, so a live stays `scheduled` for a
- * while after its start time; the badge keeps showing it in the meantime.
- */
-const ACTIVATION_GRACE_MS = 5 * 60 * 1000
-
 export const fetchLiveBadge = createServerFn({ method: 'GET' }).handler(
   async (): Promise<LiveBadgeDto> => {
     const db = await getDefaultDb()
@@ -22,10 +16,7 @@ export const fetchLiveBadge = createServerFn({ method: 'GET' }).handler(
     if ((await getActiveLive(db, { now })) !== undefined) {
       return { status: 'live' }
     }
-    const upcoming = await getUpcomingLive(db, {
-      now,
-      graceMs: ACTIVATION_GRACE_MS,
-    })
+    const upcoming = await getUpcomingLive(db, { now })
     return upcoming === null
       ? { status: 'none' }
       : {

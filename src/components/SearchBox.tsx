@@ -208,7 +208,8 @@ export default function SearchBox() {
                         : 'text-(--bss-text-secondary)'
                     }`}
                   >
-                    <span className="min-w-0 truncate">{hit.label}</span>
+                    {/* Long labels wrap so the full text stays readable. */}
+                    <span className="min-w-0 break-words">{hit.label}</span>
                     <span className="ml-2 shrink-0 text-xs opacity-70">
                       {kindLabels[hit.kind]}
                     </span>

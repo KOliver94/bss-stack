@@ -25,6 +25,7 @@ import { ForbiddenError } from '#/server/auth/guards.ts'
 import { anonymousViewer } from '#/server/auth/viewer.ts'
 import type { Viewer } from '#/server/auth/viewer.ts'
 import {
+  eventStaff,
   events,
   memberCache,
   staffRoles,
@@ -306,11 +307,30 @@ describe.skipIf(!hasTestDatabase)('BSS-012: stábszerepek', () => {
       { videoId: videoB.id, roleId: target.id, memberSub: 'member-sub' },
     ])
 
+    await db.insert(eventStaff).values([
+      {
+        eventId: videoA.eventId!,
+        roleId: source.id,
+        memberSub: 'member-sub',
+      },
+      {
+        eventId: videoB.eventId!,
+        roleId: source.id,
+        memberSub: 'member-sub',
+      },
+      {
+        eventId: videoB.eventId!,
+        roleId: target.id,
+        memberSub: 'member-sub',
+      },
+    ])
+
     await mergeStaffRole(db, { viewer: leaderViewer }, source.id, target.id)
 
     const roles = await listStaffRolesWithUsage(db)
     const merged = roles.find((r) => r.id === target.id)
     expect(merged?.videoCount).toBe(2)
+    expect(merged?.eventCount).toBe(2)
     const remainingRoles = await db.select().from(staffRoles)
     expect(remainingRoles.map((r) => r.name)).toEqual(['Villanyszerelő'])
   })
@@ -333,6 +353,20 @@ describe.skipIf(!hasTestDatabase)('BSS-012: stábszerepek', () => {
     await expect(
       db.delete(staffRoles).where(eq(staffRoles.id, used.id)),
     ).rejects.toThrow()
+
+    const eventOnly = await createStaffRole(
+      db,
+      { viewer: leaderViewer },
+      'Esemény stábtag',
+    )
+    await db.insert(eventStaff).values({
+      eventId: video.eventId!,
+      roleId: eventOnly.id,
+      memberSub: 'member-sub',
+    })
+    await expect(
+      deleteStaffRole(db, { viewer: leaderViewer }, eventOnly.id),
+    ).rejects.toBeInstanceOf(StaffRoleInUseError)
 
     const free = await createStaffRole(
       db,

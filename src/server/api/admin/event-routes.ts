@@ -10,6 +10,7 @@ import {
   createEvent,
   permanentlyDeleteEvent,
   publishEvent,
+  setEventStaff,
   updateEvent,
 } from '#/server/events/domain.ts'
 import { jsonResponse, readJsonBody, runAdminHandler } from './http.ts'
@@ -108,6 +109,42 @@ export async function handleAdminEventRoutes(
           domainDeps,
           id,
           parseVersion(body['version']),
+        )
+        return jsonResponse(200, { ok: true, version: row.version })
+      }
+      case 'staff': {
+        const rawAssignments = body['assignments']
+        if (!Array.isArray(rawAssignments)) {
+          return jsonResponse(400, {
+            error: 'bad_request',
+            message: 'A stáblista (assignments) lista kell legyen.',
+          })
+        }
+        const assignments = []
+        for (const entry of rawAssignments) {
+          if (
+            entry === null ||
+            typeof entry !== 'object' ||
+            typeof (entry as Record<string, unknown>)['roleId'] !== 'string' ||
+            typeof (entry as Record<string, unknown>)['memberSub'] !== 'string'
+          ) {
+            return jsonResponse(400, {
+              error: 'bad_request',
+              message:
+                'Minden stábbetetésnek roleId és memberSub mezője kell legyen.',
+            })
+          }
+          assignments.push({
+            roleId: (entry as Record<string, string>)['roleId'],
+            memberSub: (entry as Record<string, string>)['memberSub'],
+          })
+        }
+        const row = await setEventStaff(
+          database,
+          domainDeps,
+          id,
+          parseVersion(body['version']),
+          assignments,
         )
         return jsonResponse(200, { ok: true, version: row.version })
       }

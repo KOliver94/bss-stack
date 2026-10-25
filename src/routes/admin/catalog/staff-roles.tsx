@@ -23,6 +23,7 @@ interface RoleRow {
   name: string
   displayOrder: number
   videoCount: number
+  eventCount: number
 }
 
 const loadRoleCatalog = createServerFn({ method: 'GET' }).handler(async () => {
@@ -212,6 +213,7 @@ function RoleRowEditor({
   const [busy, setBusy] = useState(false)
   const [problems, setProblems] = useState<string[]>([])
   const [message, setMessage] = useState<string | null>(null)
+  const inUse = role.videoCount > 0 || role.eventCount > 0
 
   async function act(url: string, body: Record<string, unknown>) {
     setBusy(true)
@@ -254,7 +256,9 @@ function RoleRowEditor({
           {index + 1}. {role.name}
         </span>
         <span className="text-xs text-(--bss-text-secondary)">
-          {role.videoCount} videón használva
+          {role.videoCount} videón
+          {role.eventCount > 0 ? `, ${role.eventCount} eseményen` : ''}{' '}
+          használva
         </span>
         <span className="flex-1" />
         <AdminSecondaryButton onClick={() => setRenaming((value) => !value)}>
@@ -267,13 +271,11 @@ function RoleRowEditor({
         )}
         <span
           className="group relative"
-          tabIndex={role.videoCount > 0 ? 0 : undefined}
-          aria-describedby={
-            role.videoCount > 0 ? `delete-tooltip-${role.id}` : undefined
-          }
+          tabIndex={inUse ? 0 : undefined}
+          aria-describedby={inUse ? `delete-tooltip-${role.id}` : undefined}
         >
           <AdminSecondaryButton
-            disabled={role.videoCount > 0}
+            disabled={inUse}
             confirm={`Biztosan törlöd „${role.name}" stábszerepet?`}
             onClick={() =>
               void act(`/api/admin/staff-roles/${role.id}/delete`, {})
@@ -281,7 +283,7 @@ function RoleRowEditor({
           >
             Törlés
           </AdminSecondaryButton>
-          {role.videoCount > 0 && (
+          {inUse && (
             <span
               id={`delete-tooltip-${role.id}`}
               role="tooltip"

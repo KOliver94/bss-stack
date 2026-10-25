@@ -415,19 +415,25 @@ describe.skipIf(!hasTestDatabase)(
       expect(state.upcomingLive?.embedUrl).toContain('iiiiiiiiiii')
     })
 
-    it('graceMs: az elindulásra váró, már esedékes ütemezés is közelgő marad', async () => {
+    it('a kezdési idő elérésekor a live azonnal megjelenik, a háttérfeladatot nem várja meg', async () => {
       const db = await setupDb()
-      await db.insert(liveStreams).values({
-        youtubeVideoId: 'kkkkkkkkkkk',
-        startsAt: new Date(clock.now().getTime() - 30 * 1000),
-      })
+      await db.insert(liveStreams).values([
+        {
+          youtubeVideoId: 'kkkkkkkkkkk',
+          startsAt: new Date(clock.now().getTime() - 30 * 1000),
+        },
+        {
+          youtubeVideoId: 'lllllllllll',
+          startsAt: new Date('2026-07-01T09:00:00.000Z'),
+          status: 'active',
+          activatedAt: new Date('2026-07-01T09:00:00.000Z'),
+        },
+      ])
 
       expect(await getUpcomingLive(db, { now: clock.now() })).toBeNull()
-      const upcoming = await getUpcomingLive(db, {
-        now: clock.now(),
-        graceMs: 5 * 60 * 1000,
-      })
-      expect(upcoming?.stream.youtubeVideoId).toBe('kkkkkkkkkkk')
+      const state = await getHomepageState(db, { now: clock.now() })
+      expect(state.priority).toBe('live')
+      expect(state.liveEmbedUrl).toContain('kkkkkkkkkkk')
     })
   },
 )

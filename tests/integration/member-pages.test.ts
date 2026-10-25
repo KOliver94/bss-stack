@@ -10,7 +10,14 @@ import { groupActivity } from '#/lib/activity.ts'
 import type { ActivityRow } from '#/lib/activity.ts'
 import { anonymousViewer } from '#/server/auth/viewer.ts'
 import type { Viewer } from '#/server/auth/viewer.ts'
-import { memberCache, staffRoles, videoStaff, videos } from '#/db/schema.ts'
+import {
+  eventStaff,
+  events,
+  memberCache,
+  staffRoles,
+  videoStaff,
+  videos,
+} from '#/db/schema.ts'
 import { createMigratedTestDatabase } from '../helpers/test-db.ts'
 
 const databases: Array<{ drop: () => Promise<void> }> = []
@@ -191,7 +198,7 @@ describe.skipIf(!hasTestDatabase)('BSS-023: archív aloldal', () => {
 })
 
 describe.skipIf(!hasTestDatabase)('öregtagok aloldal', () => {
-  it('csak az ALUMNI státuszú tagok', async () => {
+  it('az ALUMNI és ACTIVE_ALUMNI státuszú tagok', async () => {
     const db = await setupDb()
     await seedMember(db, {
       sub: 'alumni-1',
@@ -212,7 +219,10 @@ describe.skipIf(!hasTestDatabase)('öregtagok aloldal', () => {
 
     const alumni = await getMemberArchivePage(db, 'alumni')
     expect(alumni.title).toBe('Öregtagok')
-    expect(alumni.items.map((member) => member.username)).toEqual(['oregtag'])
+    expect(alumni.items.map((member) => member.username).sort()).toEqual([
+      'aktiv-oregtag',
+      'oregtag',
+    ])
   })
 
   it('belépési év szerint csökkenően, azon belül név szerint', async () => {
@@ -382,10 +392,7 @@ describe.skipIf(!hasTestDatabase)('BSS-023: tevékenység', () => {
       'uj-video',
       'regi-video',
     ])
-    expect(activity.items.map((row) => row.videoId)).toEqual([
-      recent.id,
-      old.id,
-    ])
+    expect(activity.items.map((row) => row.id)).toEqual([recent.id, old.id])
     expect(activity.items[0]?.roles.sort()).toEqual(['Rendező', 'Vágó'])
 
     // Tag néző már a titkos videót is látja.
@@ -397,12 +404,99 @@ describe.skipIf(!hasTestDatabase)('BSS-023: tevékenység', () => {
     const memberActivity = await getMemberActivity(db, memberViewer, 'act-1')
     expect(memberActivity.total).toBe(3)
   })
+
+  it('az esemény stábtagsága is megjelenik, a kezdődátum szerint rendezve', async () => {
+    const db = await setupDb()
+    await seedMember(db, {
+      sub: 'crew-1',
+      username: 'stabtag',
+      fullName: 'Stáb Tamás',
+    })
+    const crewRole = await db
+      .insert(staffRoles)
+      .values({ name: 'Esemény stábtag', normalizedName: 'esemeny stabtag' })
+      .returning()
+      .then((rows) => rows.at(0))
+    const video = await db
+      .insert(videos)
+      .values({
+        slug: 'gala-video',
+        title: 'Gála videó',
+        status: 'published',
+        publishedAt: new Date('2024-06-01T10:00:00Z'),
+        recordedAt: '2024-06-01',
+      })
+      .returning()
+      .then((rows) => rows.at(0))
+    const eventRows = await db
+      .insert(events)
+      .values([
+        {
+          slug: 'golyabal-2025',
+          title: 'Gólyabál 2025',
+          status: 'published',
+          startDate: '2025-10-31',
+        },
+        {
+          slug: 'piszkozat-esemeny',
+          title: 'Piszkozat',
+          status: 'draft',
+          startDate: '2026-01-01',
+        },
+      ])
+      .returning()
+    const published = eventRows.at(0)
+    const draft = eventRows.at(1)
+    if (
+      crewRole === undefined ||
+      video === undefined ||
+      published === undefined ||
+      draft === undefined
+    ) {
+      throw new Error('seed failed')
+    }
+    await db
+      .insert(videoStaff)
+      .values({ videoId: video.id, roleId: crewRole.id, memberSub: 'crew-1' })
+    await db.insert(eventStaff).values([
+      { eventId: published.id, roleId: crewRole.id, memberSub: 'crew-1' },
+      { eventId: draft.id, roleId: crewRole.id, memberSub: 'crew-1' },
+    ])
+
+    const activity = await getMemberActivity(db, anonymous, 'crew-1')
+    expect(activity.total).toBe(2)
+    expect(
+      activity.items.map((row) => ({
+        kind: row.kind,
+        slug: row.slug,
+        recordedAt: row.recordedAt,
+        year: row.year,
+        roles: row.roles,
+      })),
+    ).toEqual([
+      {
+        kind: 'event',
+        slug: 'golyabal-2025',
+        recordedAt: '2025-10-31',
+        year: 2025,
+        roles: ['Esemény stábtag'],
+      },
+      {
+        kind: 'video',
+        slug: 'gala-video',
+        recordedAt: '2024-06-01',
+        year: 2024,
+        roles: ['Esemény stábtag'],
+      },
+    ])
+  })
 })
 
 describe.skipIf(!hasTestDatabase)('BSS-023: tevékenység csoportosítás', () => {
   const rows: Array<ActivityRow> = [
     {
-      videoId: 'v1',
+      kind: 'video',
+      id: 'v1',
       slug: 'v1',
       title: 'V1',
       recordedAt: '2026-05-01',
@@ -410,7 +504,8 @@ describe.skipIf(!hasTestDatabase)('BSS-023: tevékenység csoportosítás', () =
       roles: ['Rendező'],
     },
     {
-      videoId: 'v2',
+      kind: 'video',
+      id: 'v2',
       slug: 'v2',
       title: 'V2',
       recordedAt: '2025-03-01',
@@ -418,7 +513,8 @@ describe.skipIf(!hasTestDatabase)('BSS-023: tevékenység csoportosítás', () =
       roles: ['Rendező', 'Vágó'],
     },
     {
-      videoId: 'v3',
+      kind: 'video',
+      id: 'v3',
       slug: 'v3',
       title: 'V3',
       recordedAt: null,
@@ -437,7 +533,7 @@ describe.skipIf(!hasTestDatabase)('BSS-023: tevékenység csoportosítás', () =
     ])
     // Ugyanaz a videó mindkét szerepcsoportban megjelenik.
     for (const entry of group2025?.groups ?? []) {
-      expect(entry.videos.map((video) => video.videoId)).toEqual(['v2'])
+      expect(entry.videos.map((video) => video.id)).toEqual(['v2'])
     }
     // Szerep nélküli videó „Stábtag” csoportba kerül.
     const group0 = yearGroups.find((group) => group.year === 0)
@@ -447,8 +543,8 @@ describe.skipIf(!hasTestDatabase)('BSS-023: tevékenység csoportosítás', () =
   it('szerep nézet: szerepek alatt időrendben a videók', () => {
     const { roleGroups } = groupActivity(rows, 'role')
     const rendezo = roleGroups.find((group) => group.roleName === 'Rendező')
-    expect(rendezo?.videos.map((video) => video.videoId)).toEqual(['v1', 'v2'])
+    expect(rendezo?.videos.map((video) => video.id)).toEqual(['v1', 'v2'])
     const vago = roleGroups.find((group) => group.roleName === 'Vágó')
-    expect(vago?.videos.map((video) => video.videoId)).toEqual(['v2'])
+    expect(vago?.videos.map((video) => video.id)).toEqual(['v2'])
   })
 })

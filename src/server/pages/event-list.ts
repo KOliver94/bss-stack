@@ -1,9 +1,18 @@
 import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm'
 import type { Viewer } from '#/server/auth/viewer.ts'
-import { events, memberCache, videoStaff, videos } from '#/db/schema.ts'
+import {
+  eventStaff,
+  events,
+  memberCache,
+  videoStaff,
+  videos,
+} from '#/db/schema.ts'
 import type { Executor } from '#/server/shared/db-executor.ts'
 import { visibleVideoCondition } from '#/server/videos/visibility.ts'
-import { videoThumbnailUrl } from '#/server/media/video-media.ts'
+import {
+  videoAssetUrls,
+  videoThumbnailUrl,
+} from '#/server/media/video-media.ts'
 
 export const EVENT_PAGE_SIZES = [10, 25, 50, 100] as const
 export const DEFAULT_EVENT_PAGE_SIZE = 50
@@ -178,6 +187,7 @@ export interface EventDetailData {
       slug: string
       title: string
       thumbnailUrl: string | null
+      keyframeUrl: string | null
       recordedAt: string | null
     }>
     total: number
@@ -192,8 +202,8 @@ export interface EventDetailData {
 
 /**
  * Public event detail: videos in descending `recordedAt` order (missing
- * values at the end), paginated by 50; the derived staff list is built only
- * from visible videos.
+ * values at the end), paginated by 50; the staff list joins the event crew
+ * with the members credited on visible videos.
  */
 export async function getEventDetail(
   executor: Executor,
@@ -225,7 +235,7 @@ export async function getEventDetail(
     visibleVideoCondition(viewer),
   )
 
-  const [videoRows, countRows, staffRows] = await Promise.all([
+  const [videoRows, countRows, videoStaffRows, crewRows] = await Promise.all([
     executor
       .select({
         id: videos.id,
@@ -260,7 +270,23 @@ export async function getEventDetail(
       .where(videoCondition)
       .orderBy(asc(memberCache.fullName))
       .limit(1000),
+    executor
+      .selectDistinct({
+        sub: memberCache.sub,
+        username: memberCache.username,
+        fullName: memberCache.fullName,
+      })
+      .from(eventStaff)
+      .innerJoin(memberCache, eq(memberCache.sub, eventStaff.memberSub))
+      .where(eq(eventStaff.eventId, event.id)),
   ])
+  const staffBySub = new Map(
+    [...crewRows, ...videoStaffRows].map((row) => [row.sub, row]),
+  )
+  const staffRows = [...staffBySub.values()].sort(
+    (a, b) =>
+      a.fullName.localeCompare(b.fullName, 'hu') || a.sub.localeCompare(b.sub),
+  )
 
   return {
     id: event.id,
@@ -278,17 +304,21 @@ export async function getEventDetail(
     startDate: event.startDate,
     endDate: event.endDate,
     videos: {
-      items: videoRows.map((video) => ({
-        id: video.id,
-        slug: video.slug,
-        title: video.title,
-        thumbnailUrl: videoThumbnailUrl({
+      items: videoRows.map((video) => {
+        const { thumbnailUrl, keyframeUrl } = videoAssetUrls({
           ...video,
           hasHq: false,
           hasLq: false,
-        }),
-        recordedAt: video.recordedAt,
-      })),
+        })
+        return {
+          id: video.id,
+          slug: video.slug,
+          title: video.title,
+          thumbnailUrl,
+          keyframeUrl,
+          recordedAt: video.recordedAt,
+        }
+      }),
       total: countRows.at(0)?.count ?? 0,
     },
     staffMembers: staffRows.map((row) => ({

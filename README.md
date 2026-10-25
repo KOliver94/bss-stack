@@ -5,6 +5,7 @@ editorial system (TanStack Start + PostgreSQL + Authentik).
 
 ## Documentation
 
+- [Maintainers: releases and Docker images](./MAINTAINERS.md)
 - [OOB inputs](./docs/oob-inputs.md)
 - [Member update webhook (OpenAPI 3.1)](./docs/api/members-webhook.openapi.yaml)
 - Examples: [OOB config](./docs/examples/oob-config.example.json),

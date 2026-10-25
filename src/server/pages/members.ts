@@ -1,8 +1,25 @@
-import { and, asc, desc, eq, isNotNull, isNull, or, sql } from 'drizzle-orm'
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  inArray,
+  isNotNull,
+  isNull,
+  or,
+  sql,
+} from 'drizzle-orm'
 import type { SQL } from 'drizzle-orm'
 import type { Viewer } from '#/server/auth/viewer.ts'
 import { formatAcademicSemester } from '#/server/members/member-fields.ts'
-import { memberCache, staffRoles, videoStaff, videos } from '#/db/schema.ts'
+import {
+  eventStaff,
+  events,
+  memberCache,
+  staffRoles,
+  videoStaff,
+  videos,
+} from '#/db/schema.ts'
 import type { Executor } from '#/server/shared/db-executor.ts'
 import type { membershipStatusEnum } from '#/db/schema.ts'
 
@@ -93,8 +110,9 @@ const ARCHIVE_TITLES: Record<ArchiveKind, string> = {
 
 const ARCHIVE_CONDITIONS: Record<ArchiveKind, SQL> = {
   archived: isNotNull(memberCache.archivedAt),
+  // Active alumni also keep their block on the active members page.
   alumni: and(
-    eq(memberCache.membershipStatus, 'ALUMNI'),
+    inArray(memberCache.membershipStatus, ['ALUMNI', 'ACTIVE_ALUMNI']),
     isNull(memberCache.archivedAt),
   )!,
 }
@@ -219,9 +237,10 @@ export interface ActivityPage {
 }
 
 /**
- * Member activity: only published videos visible to the viewer, descending by
- * `recordedAt` (missing values at the end). With multiple roles the same video
- * appears in a single row with a role list.
+ * Member activity: published videos visible to the viewer plus the published
+ * events the member was crew on, descending by date (`recordedAt` of videos,
+ * `startDate` of events; missing values at the end). With multiple roles the
+ * same video or event appears in a single row with a role list.
  */
 export async function getMemberActivity(
   executor: Executor,
@@ -233,28 +252,46 @@ export async function getMemberActivity(
   const offset = params.offset ?? 0
 
   const rowsResult = await executor.execute(sql`
-    select v.id as "videoId", v.slug, v.title,
-      to_char(v.recorded_at, 'YYYY-MM-DD') as "recordedAt",
-      extract(year from v.recorded_at)::int as year,
-      coalesce(
-        (select json_agg(r.name order by r.display_order, r.name)
-         from ${videoStaff} vs
-         join ${staffRoles} r on r.id = vs.role_id
-         where vs.video_id = v.id and vs.member_sub = ${memberSub}),
-        '[]'::json
-      ) as roles,
+    select a.kind, a.id, a.slug, a.title,
+      to_char(a.day, 'YYYY-MM-DD') as "recordedAt",
+      extract(year from a.day)::int as year,
+      a.roles,
       count(*) over () as total
-    from ${videos} v
-    where v.status = 'published'
-      and exists (
-        select 1 from ${videoStaff} vs2
-        where vs2.video_id = v.id and vs2.member_sub = ${memberSub}
-      )
-      and (
-        v.visibility = 'public'
-        or ${sql.raw(viewer.level === 'schonherz' ? "(v.visibility in ('public','schonherz'))" : viewer.level === 'anonymous' ? 'false' : 'true')}
-      )
-    order by v.recorded_at desc nulls last, v.published_at desc nulls last, v.id
+    from (
+      select 'video' as kind, v.id, v.slug, v.title, v.recorded_at as day,
+        v.published_at as sort_at,
+        coalesce(
+          (select json_agg(r.name order by r.display_order, r.name)
+           from ${videoStaff} vs
+           join ${staffRoles} r on r.id = vs.role_id
+           where vs.video_id = v.id and vs.member_sub = ${memberSub}),
+          '[]'::json
+        ) as roles
+      from ${videos} v
+      where v.status = 'published'
+        and exists (
+          select 1 from ${videoStaff} vs2
+          where vs2.video_id = v.id and vs2.member_sub = ${memberSub}
+        )
+        and (
+          v.visibility = 'public'
+          or ${sql.raw(viewer.level === 'schonherz' ? "(v.visibility in ('public','schonherz'))" : viewer.level === 'anonymous' ? 'false' : 'true')}
+        )
+      union all
+      select 'event' as kind, e.id, e.slug, e.title, e.start_date as day,
+        e.created_at as sort_at,
+        (select json_agg(r.name order by r.display_order, r.name)
+         from ${eventStaff} es
+         join ${staffRoles} r on r.id = es.role_id
+         where es.event_id = e.id and es.member_sub = ${memberSub}) as roles
+      from ${events} e
+      where e.status = 'published'
+        and exists (
+          select 1 from ${eventStaff} es2
+          where es2.event_id = e.id and es2.member_sub = ${memberSub}
+        )
+    ) a
+    order by a.day desc nulls last, a.sort_at desc nulls last, a.kind, a.id
     limit ${limit} offset ${offset}
   `)
 

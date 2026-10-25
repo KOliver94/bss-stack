@@ -348,6 +348,30 @@ export const videoStaff = pgTable(
   ],
 )
 
+/**
+ * Event crew: members who helped at an event without a credit on a specific
+ * video (the legacy site's "Esemény stábtag" cast list on event nodes).
+ */
+export const eventStaff = pgTable(
+  'event_staff',
+  {
+    eventId: uuid('event_id')
+      .notNull()
+      .references(() => events.id, { onDelete: 'cascade' }),
+    roleId: uuid('role_id')
+      .notNull()
+      .references(() => staffRoles.id, { onDelete: 'restrict' }),
+    memberSub: varchar('member_sub', { length: 255 })
+      .notNull()
+      .references(() => memberCache.sub),
+  },
+  (table) => [
+    primaryKey({ columns: [table.eventId, table.roleId, table.memberSub] }),
+    index('event_staff_member_idx').on(table.memberSub),
+    index('event_staff_role_idx').on(table.roleId),
+  ],
+)
+
 export const relatedVideos = pgTable(
   'related_videos',
   {

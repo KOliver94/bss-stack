@@ -30,8 +30,8 @@ type MembershipStatus = (typeof membershipStatusEnum.enumValues)[number]
 export const MEMBER_PAGE_SIZE = 50
 
 export const MEMBERSHIP_STATUS_LABELS: Record<MembershipStatus, string> = {
-  MEMBER_CANDIDATE_CANDIDATE: 'Stúdiósjelölt-jelölt',
-  MEMBER_CANDIDATE: 'Stúdiósjelölt',
+  MEMBER_CANDIDATE_CANDIDATE: 'Stúdiós-jelölt jelölt',
+  MEMBER_CANDIDATE: 'Stúdiós-jelölt',
   MEMBER: 'Stúdiós',
   ACTIVE_ALUMNI: 'Aktív öregtag',
   ALUMNI: 'Öregtag',

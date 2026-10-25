@@ -46,7 +46,14 @@ function stripHtml(html: string): string {
     .replace(/&#039;/g, "'")
     .replace(/&#x27;/g, "'")
     .replace(/&apos;/g, "'")
-  s = s.replace(/\s+/g, ' ').trim()
+  // Line breaks are kept: the pages render descriptions with
+  // whitespace-pre-line, like Drupal's line-break filter did.
+  s = s
+    .replace(/\r\n?/g, '\n')
+    .replace(/[^\S\n]+/g, ' ')
+    .replace(/ ?\n ?/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
   if (s.length > TEXT_LIMITS.description)
     s = s.slice(0, TEXT_LIMITS.description)
   return s || ''
@@ -80,6 +87,7 @@ function mysqlExec(sqlQuery: string): string {
         '--default-character-set=utf8mb4',
         '-N',
         '-B',
+        '-r',
         'website_db',
         '-e',
         query,
@@ -96,6 +104,7 @@ function mysqlExec(sqlQuery: string): string {
           '--default-character-set=utf8mb4',
           '-N',
           '-B',
+          '-r',
           'website_db',
           '-e',
           query,
@@ -252,17 +261,13 @@ function encodingGroupFromProfile(
 
 function mysqlJson(sqlQuery: string): Record<string, unknown>[] {
   const out = mysqlExec(sqlQuery)
-  // out is tab-separated lines where each line is a JSON string (with escaped quotes)
+  // One JSON document per line. mysqlExec passes -r, so the JSON escapes reach
+  // JSON.parse verbatim; without it "\r\n" would be stored as literal text.
   const rows: Record<string, unknown>[] = []
   for (const line of out.split('\n')) {
     const t = line.trim()
     if (t === '' || t === 'NULL') continue
-    try {
-      rows.push(JSON.parse(t))
-    } catch {
-      // Fallback: try to unescape mysql -B escaping
-      rows.push(JSON.parse(t.replace(/\\"/g, '"')))
-    }
+    rows.push(JSON.parse(t))
   }
   return rows
 }
@@ -610,6 +615,13 @@ async function migrateMembers(
   return { created, updated, total: artifacts.length }
 }
 
+// Event nodes that duplicate another one (duplicate → canonical nid). They are
+// not migrated; their videos go to the canonical event.
+const DUPLICATE_EVENT_NIDS = new Map<number, number>([
+  [1772, 1228], // Simonyi Konferencia 2013
+  [2580, 2353], // Simonyi Szakmai Est 2018. ősz → Szakmai Est - 2018. október 29.
+])
+
 async function migrateEventsAndVideos(
   db: ReturnType<typeof drizzle> | null,
   opts: { dryRun: boolean },
@@ -648,7 +660,8 @@ async function migrateEventsAndVideos(
   for (const row of eventRows) {
     const r = row
     const nid = Number(r['nid'])
-    const title = String(r['title'] ?? '')
+    if (DUPLICATE_EVENT_NIDS.has(nid)) continue
+    const title = String(r['title'] ?? '').trim()
     const statusNum = Number(r['status'] ?? 0)
     const created = Number(r['created'] ?? 0)
     const body = String(r['body'] ?? '')
@@ -774,8 +787,9 @@ async function migrateEventsAndVideos(
   }
   console.log(`Total video base rows: ${allVideoRows.length}`)
 
-  // Drupal stored an explicit event-to-video relation. Some videos appear in
-  // duplicate event nodes; the newest event node is the canonical parent.
+  // Drupal stored an explicit event-to-video relation. A video can only have
+  // one parent here: duplicate event nodes fold into their canonical node, and
+  // otherwise the oldest linked event wins (e.g. "A Professzor" over Simonyi100).
   const eventLinkRows = mysqlJson(`
     SELECT JSON_OBJECT(
       'eventNid', event_node.nid,
@@ -792,9 +806,12 @@ async function migrateEventsAndVideos(
   `)
   const eventKeyByVideoNid = new Map<number, string>()
   for (const row of eventLinkRows) {
+    const videoNid = Number(row['videoNid'])
+    if (eventKeyByVideoNid.has(videoNid)) continue
+    const eventNid = Number(row['eventNid'])
     eventKeyByVideoNid.set(
-      Number(row['videoNid']),
-      `event-${Number(row['eventNid'])}`,
+      videoNid,
+      `event-${DUPLICATE_EVENT_NIDS.get(eventNid) ?? eventNid}`,
     )
   }
 
@@ -881,7 +898,7 @@ async function migrateEventsAndVideos(
     const r = row
     const nid = Number(r['nid'])
     const vid = Number(r['vid'])
-    const titleRaw = String(r['title'] ?? 'Untitled')
+    const titleRaw = String(r['title'] ?? 'Untitled').trim()
     const title =
       truncate(titleRaw, TEXT_LIMITS.title) ?? titleRaw.slice(0, 200)
     const statusNum = Number(r['status'] ?? 0)

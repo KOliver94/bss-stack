@@ -3,7 +3,6 @@ import { createServerFn } from '@tanstack/react-start'
 import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import {
-  ADMIN_DEFAULT_PAGE_SIZE,
   getAdminVideoFilterOptions,
   getAdminVideoList,
   parseAdminVideoFilters,
@@ -13,10 +12,12 @@ import { getDefaultDb } from '#/server/auth/session-store.ts'
 import { searchInput } from '#/server/shared/server-fn-input.ts'
 import { adminFnMiddleware } from '#/server/pages/admin/access-fn.ts'
 import {
+  ADMIN_PAGE_SIZE,
   parsePaginationNumber,
   parseSearchPage,
 } from '#/server/shared/pagination.ts'
-import { ErrorState, LoadingState } from '#/components/PageStates.tsx'
+import { LoadingState } from '#/components/PageStates.tsx'
+import { AdminLoadError } from '#/components/admin/Alerts.tsx'
 import { ResponsiveTable } from '#/components/admin/ResponsiveTable.tsx'
 import { VideoVisibility } from '#/components/admin/VideoVisibility.tsx'
 import {
@@ -45,7 +46,7 @@ const loadAdminVideoList = createServerFn({ method: 'GET' })
     const db = await getDefaultDb()
     return getAdminVideoList(db, {
       page: parsePaginationNumber(data['page'], 1),
-      perPage: ADMIN_DEFAULT_PAGE_SIZE,
+      perPage: ADMIN_PAGE_SIZE,
       filters: parseAdminVideoFilters(data),
     })
   })
@@ -129,7 +130,10 @@ function AdminVideoListPage() {
 
       {listQuery.isPending && <LoadingState />}
       {listQuery.isError && (
-        <ErrorState label="Hiba történt a videók betöltése közben. Próbáld újra később." />
+        <AdminLoadError
+          error={listQuery.error}
+          label="Hiba történt a videók betöltése közben. Próbáld újra később."
+        />
       )}
       {listQuery.isSuccess &&
         (listQuery.data.items.length === 0 ? (

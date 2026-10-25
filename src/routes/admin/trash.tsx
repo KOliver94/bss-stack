@@ -6,13 +6,14 @@ import { getDefaultDb } from '#/server/auth/session-store.ts'
 import { searchInput } from '#/server/shared/server-fn-input.ts'
 import { adminFnMiddleware } from '#/server/pages/admin/access-fn.ts'
 import {
+  ADMIN_PAGE_SIZE,
   parsePaginationNumber,
   parseSearchPage,
 } from '#/server/shared/pagination.ts'
 import { getTrashPage } from '#/server/admin/trash-admin.ts'
 import type { TrashPage } from '#/server/admin/trash-admin.ts'
-import { fetchViewerState } from '#/server/pages/viewer-fn.ts'
-import { ErrorState, LoadingState } from '#/components/PageStates.tsx'
+import { LoadingState } from '#/components/PageStates.tsx'
+import { AdminLoadError } from '#/components/admin/Alerts.tsx'
 import { AdminPrimaryButton } from '#/components/admin/form.tsx'
 import { postJson } from '#/lib/admin-api.ts'
 import { formatAdminDateTimeHu } from '#/lib/format-date.ts'
@@ -27,7 +28,7 @@ const loadTrashPage = createServerFn({ method: 'GET' })
     const db = await getDefaultDb()
     return getTrashPage(db, {
       page: parsePaginationNumber(data['page'], 1),
-      perPage: 25,
+      perPage: ADMIN_PAGE_SIZE,
     })
   })
 
@@ -52,16 +53,11 @@ function TrashPageComponent() {
     queryKey: ['admin-trash', page],
     queryFn: () => loadTrashPage({ data: { page } }),
   })
-  const viewerQuery = useQuery({
-    queryKey: ['viewer'],
-    queryFn: fetchViewerState,
-    staleTime: 60_000,
-  })
-  const isLeadership = viewerQuery.data?.level === 'leadership'
+  const isLeadership =
+    Route.useRouteContext().adminViewer.level === 'leadership'
 
   function refresh() {
     void queryClient.invalidateQueries({ queryKey: ['admin-trash', page] })
-    void queryClient.invalidateQueries({ queryKey: ['viewer'] })
   }
 
   return (
@@ -76,7 +72,10 @@ function TrashPageComponent() {
 
       {trashQuery.isPending && <LoadingState />}
       {trashQuery.isError && (
-        <ErrorState label="Hiba történt a lomtár betöltése közben. Próbáld újra később." />
+        <AdminLoadError
+          error={trashQuery.error}
+          label="Hiba történt a lomtár betöltése közben. Próbáld újra később."
+        />
       )}
 
       {trashQuery.isSuccess &&

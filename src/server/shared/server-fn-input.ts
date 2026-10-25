@@ -1,3 +1,5 @@
+import { isUuid } from '#/lib/uuid.ts'
+
 /**
  * Server function input is whatever JSON the caller sends; the TypeScript
  * signature only describes what our own pages pass. These checks accept the
@@ -9,9 +11,6 @@ export class InvalidInputError extends Error {
     this.name = 'InvalidInputError'
   }
 }
-
-const UUID_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 /** A plain object; a missing input counts as an empty one. */
 export function recordInput(input: unknown): Record<string, unknown> {
@@ -60,7 +59,7 @@ export function integerInput(value: unknown, min: number, max: number): number {
 /** `{ id }` addressing one row by its UUID primary key. */
 export function idInput(input: unknown): { id: string } {
   const id = stringInput(recordInput(input)['id'])
-  if (!UUID_PATTERN.test(id)) {
+  if (!isUuid(id)) {
     throw new InvalidInputError()
   }
   return { id }

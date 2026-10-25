@@ -21,9 +21,7 @@ import {
   renameTag,
 } from '#/server/catalog/tags.ts'
 import { jsonResponse, readJsonBody, runAdminHandler } from './http.ts'
-
-const UUID_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+import { isUuid } from '#/lib/uuid.ts'
 
 export interface AdminCatalogRouteDeps {
   db?: Database
@@ -38,7 +36,7 @@ function badId(): Response {
 }
 
 function parseId(id: string | undefined): string {
-  if (id === undefined || !UUID_PATTERN.test(id)) {
+  if (id === undefined || !isUuid(id)) {
     throw badId()
   }
   return id
@@ -83,9 +81,7 @@ export async function handleAdminTagRoutes(
           const similar = await findAccentSimilarTagNames(
             database,
             name,
-            id !== undefined && UUID_PATTERN.test(id)
-              ? { excludeTagId: id }
-              : {},
+            id !== undefined && isUuid(id) ? { excludeTagId: id } : {},
           )
           return jsonResponse(200, { ok: true, similar })
         }

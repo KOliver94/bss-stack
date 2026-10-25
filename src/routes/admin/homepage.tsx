@@ -6,14 +6,14 @@ import { ExternalLink } from 'lucide-react'
 import { getDefaultDb } from '#/server/auth/session-store.ts'
 import { adminFnMiddleware } from '#/server/pages/admin/access-fn.ts'
 import { getHomepageAdminData } from '#/server/admin/homepage-admin.ts'
-import { fetchViewerState } from '#/server/pages/viewer-fn.ts'
-import { ErrorState, LoadingState } from '#/components/PageStates.tsx'
+import { LoadingState } from '#/components/PageStates.tsx'
 import {
   AdminPrimaryButton,
   AdminSecondaryButton,
   AdminTextField,
 } from '#/components/admin/form.tsx'
 import {
+  AdminLoadError,
   FormMessage,
   LoginRequiredBanner,
   ValidationProblems,
@@ -53,12 +53,8 @@ function HomepageAdminPage() {
     queryKey: ['admin-homepage'],
     queryFn: loadHomepageAdmin,
   })
-  const viewerQuery = useQuery({
-    queryKey: ['viewer'],
-    queryFn: fetchViewerState,
-    staleTime: 60_000,
-  })
-  const isLeadership = viewerQuery.data?.level === 'leadership'
+  const isLeadership =
+    Route.useRouteContext().adminViewer.level === 'leadership'
 
   function refresh() {
     void queryClient.invalidateQueries({ queryKey: ['admin-homepage'] })
@@ -71,7 +67,10 @@ function HomepageAdminPage() {
       </h1>
       {dataQuery.isPending && <LoadingState />}
       {dataQuery.isError && (
-        <ErrorState label="Hiba történt a beállítások betöltése közben. Próbáld újra később." />
+        <AdminLoadError
+          error={dataQuery.error}
+          label="Hiba történt a beállítások betöltése közben. Próbáld újra később."
+        />
       )}
       {dataQuery.isSuccess && (
         <div className="flex flex-col gap-6">

@@ -5,6 +5,7 @@ import { webhookClients } from '#/db/schema.ts'
 import type { Executor } from '#/server/shared/db-executor.ts'
 import { isUniqueViolation } from '#/server/shared/pg-error.ts'
 import { TextValidationError } from '#/server/shared/text.ts'
+import { isUuid } from '#/lib/uuid.ts'
 
 function scryptAsync(
   secret: string,
@@ -235,9 +236,6 @@ export async function deleteWebhookClient(
   }
 }
 
-const UUID_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-
 /**
  * Resolves `Authorization: Bearer <clientId>.<secret>` to a live client.
  * Revoked or unknown clients are indistinguishable from a wrong secret.
@@ -260,7 +258,7 @@ export async function authenticateWebhookRequest(
   }
   const clientId = match[1].slice(0, separator)
   const secret = match[1].slice(separator + 1)
-  if (secret === '' || !UUID_PATTERN.test(clientId)) {
+  if (secret === '' || !isUuid(clientId)) {
     throw new WebhookAuthError()
   }
 

@@ -8,12 +8,18 @@ import {
 
 // A kérésből feloldott nézőt az integrációs teszt valódi sessionnel
 // ellenőrzi; itt csak az a kérdés, melyik guardot futtatja a middleware.
-const resolved = vi.hoisted((): { level: Viewer['level'] } => ({
-  level: 'anonymous',
-}))
+const resolved = vi.hoisted(
+  (): { level: Viewer['level']; referer: string | null } => ({
+    level: 'anonymous',
+    referer: null,
+  }),
+)
 
 vi.mock('@tanstack/react-start/server', () => ({
-  getRequest: () => new Request('http://localhost/_serverFn/admin-fn'),
+  getRequest: () =>
+    new Request('http://localhost/_serverFn/admin-fn', {
+      headers: resolved.referer !== null ? { referer: resolved.referer } : {},
+    }),
 }))
 
 vi.mock('#/server/pages/viewer.ts', () => ({
@@ -57,6 +63,20 @@ describe('Szerverfüggvény-guard middleware-ek', () => {
     const schonherz = run(adminFnMiddleware, 'schonherz')
     await expect(schonherz.result).rejects.toBeInstanceOf(ForbiddenError)
     expect(schonherz.next).not.toHaveBeenCalled()
+  })
+
+  it('adminFnMiddleware: a belépés a hívó oldalra tér vissza, nem a függvény végpontjára', async () => {
+    resolved.referer = 'http://localhost/admin/videos?page=2'
+    const fromPage = run(adminFnMiddleware, 'anonymous')
+    await expect(fromPage.result).rejects.toMatchObject({
+      loginUrl: `/api/auth/login?returnTo=${encodeURIComponent('/admin/videos?page=2')}`,
+    })
+
+    resolved.referer = null
+    const withoutReferer = run(adminFnMiddleware, 'anonymous')
+    await expect(withoutReferer.result).rejects.toMatchObject({
+      loginUrl: `/api/auth/login?returnTo=${encodeURIComponent('/admin')}`,
+    })
   })
 
   it('leadershipFnMiddleware: csak a vezetőséget engedi tovább, a sima tagot sem', async () => {

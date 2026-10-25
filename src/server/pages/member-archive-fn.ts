@@ -5,23 +5,18 @@ import {
   optionalNumberInput,
   recordInput,
 } from '#/server/shared/server-fn-input.ts'
-import { getMemberArchivePage } from './members.ts'
+import { getMemberArchivePage, isArchiveKind } from './members.ts'
 import type { ArchiveKind } from './members.ts'
-
-const ARCHIVE_KINDS: Record<ArchiveKind, true> = {
-  archived: true,
-  alumni: true,
-}
 
 export const loadArchiveMembersServer = createServerFn({ method: 'GET' })
   .validator((input: { kind: ArchiveKind; page?: number }) => {
     const raw = recordInput(input)
     const kind = raw['kind']
-    if (typeof kind !== 'string' || !Object.hasOwn(ARCHIVE_KINDS, kind)) {
+    if (typeof kind !== 'string' || !isArchiveKind(kind)) {
       throw new InvalidInputError()
     }
     return {
-      kind: kind as ArchiveKind,
+      kind,
       page: optionalNumberInput(raw['page']),
     }
   })

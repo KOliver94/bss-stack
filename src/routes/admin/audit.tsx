@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { getDefaultDb } from '#/server/auth/session-store.ts'
 import { searchInput } from '#/server/shared/server-fn-input.ts'
 import {
+  ADMIN_PAGE_SIZE,
   parsePaginationNumber,
   parseSearchPage,
 } from '#/server/shared/pagination.ts'
@@ -13,11 +14,9 @@ import {
   parseAuditFilters,
 } from '#/server/admin/audit-admin.ts'
 import type { AuditListItem } from '#/server/admin/audit-admin.ts'
-import {
-  leadershipFnMiddleware,
-  fetchLeadershipAreaAccess,
-} from '#/server/pages/admin/access-fn.ts'
-import { ErrorState, LoadingState } from '#/components/PageStates.tsx'
+import { leadershipFnMiddleware } from '#/server/pages/admin/access-fn.ts'
+import { LoadingState } from '#/components/PageStates.tsx'
+import { AdminLoadError } from '#/components/admin/Alerts.tsx'
 import { ResponsiveTable } from '#/components/admin/ResponsiveTable.tsx'
 import {
   AdminSearchSelect,
@@ -36,7 +35,7 @@ const loadAuditPage = createServerFn({ method: 'GET' })
     const db = await getDefaultDb()
     return getAuditPage(db, {
       page: parsePaginationNumber(data['page'], 1),
-      perPage: 25,
+      perPage: ADMIN_PAGE_SIZE,
       filters: parseAuditFilters(data),
     })
   })
@@ -66,12 +65,9 @@ export const Route = createFileRoute('/admin/audit')({
     to: typeof search['to'] === 'string' ? search['to'] : undefined,
     page: parseSearchPage(search['page']),
   }),
-  beforeLoad: async () => {
-    const access = await fetchLeadershipAreaAccess()
-    if (access.kind === 'login') {
-      throw redirect({ href: access.loginUrl })
-    }
-    if (access.kind === 'forbidden') {
+  // `/admin` has already checked the session and put the viewer's level here.
+  beforeLoad: ({ context }) => {
+    if (context.adminViewer.level !== 'leadership') {
       throw redirect({ to: '/admin/videos' })
     }
   },
@@ -200,7 +196,10 @@ function AuditAdminPage() {
 
       {auditQuery.isPending && <LoadingState />}
       {auditQuery.isError && (
-        <ErrorState label="Hiba történt a napló betöltése közben. Próbáld újra később." />
+        <AdminLoadError
+          error={auditQuery.error}
+          label="Hiba történt a napló betöltése közben. Próbáld újra később."
+        />
       )}
       {auditQuery.isSuccess &&
         (auditQuery.data.items.length === 0 ? (

@@ -13,9 +13,7 @@ import {
   updateEvent,
 } from '#/server/events/domain.ts'
 import { jsonResponse, readJsonBody, runAdminHandler } from './http.ts'
-
-const UUID_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+import { isUuid } from '#/lib/uuid.ts'
 
 export interface AdminEventRouteDeps {
   db?: Database
@@ -63,7 +61,7 @@ export async function handleAdminEventRoutes(
       return jsonResponse(200, { ok: true, id: row.id, slug: row.slug })
     }
 
-    if (id === undefined || !UUID_PATTERN.test(id)) {
+    if (id === undefined || !isUuid(id)) {
       return jsonResponse(400, {
         error: 'bad_request',
         message: 'Érvénytelen eseményazonosító.',

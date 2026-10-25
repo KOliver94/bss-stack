@@ -19,9 +19,7 @@ import {
 import { setManualRelatedVideos } from '#/server/videos/related.ts'
 import type { MediaConfig } from '#/server/media/validator.ts'
 import { jsonResponse, readJsonBody, runAdminHandler } from './http.ts'
-
-const UUID_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+import { isUuid } from '#/lib/uuid.ts'
 
 export interface AdminVideoRouteDeps {
   db?: Database
@@ -78,7 +76,7 @@ export async function handleAdminVideoRoutes(
       return jsonResponse(200, { ok: true, id: row.id, slug: row.slug })
     }
 
-    if (id === undefined || !UUID_PATTERN.test(id)) {
+    if (id === undefined || !isUuid(id)) {
       return badRequest('Érvénytelen videóazonosító.')
     }
     const body = await readJsonBody(request)
@@ -270,7 +268,7 @@ function optionalNullableId(
 ): string | null | undefined {
   if (value === undefined) return undefined
   if (value === null) return null
-  if (typeof value !== 'string' || !UUID_PATTERN.test(value)) {
+  if (typeof value !== 'string' || !isUuid(value)) {
     throw badRequest(`Érvénytelen azonosító a ${field} mezőben.`)
   }
   return value

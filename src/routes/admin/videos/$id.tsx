@@ -8,10 +8,10 @@ import {
 } from '#/server/admin/video-detail.ts'
 import { getDefaultDb } from '#/server/auth/session-store.ts'
 import { idInput } from '#/server/shared/server-fn-input.ts'
+import { isUuid } from '#/lib/uuid.ts'
 import { adminFnMiddleware } from '#/server/pages/admin/access-fn.ts'
 import { getCachedOobConfig } from '#/server/config/load.ts'
-import { fetchViewerState } from '#/server/pages/viewer-fn.ts'
-import { ErrorState, LoadingState } from '#/components/PageStates.tsx'
+import { LoadingState } from '#/components/PageStates.tsx'
 import {
   AdminPrimaryButton,
   AdminSecondaryButton,
@@ -20,6 +20,7 @@ import {
   NO_FORM_RESTORE,
 } from '#/components/admin/form.tsx'
 import {
+  AdminLoadError,
   ConflictBanner,
   FormMessage,
   LoginRequiredBanner,
@@ -54,11 +55,16 @@ const loadAdminVideoEditor = createServerFn({ method: 'GET' })
   })
 
 export const Route = createFileRoute('/admin/videos/$id')({
-  loader: ({ params, context }) =>
-    context.queryClient.ensureQueryData({
+  loader: ({ params, context }) => {
+    // A malformed id can't match any row; the server function would reject it.
+    if (!isUuid(params.id)) {
+      throw notFound()
+    }
+    return context.queryClient.ensureQueryData({
       queryKey: ['admin-video-editor', params.id],
       queryFn: () => loadAdminVideoEditor({ data: { id: params.id } }),
-    }),
+    })
+  },
   component: AdminVideoEditorPage,
 })
 
@@ -117,18 +123,19 @@ function AdminVideoEditorPage() {
     queryKey: ['admin-video-editor', id],
     queryFn: () => loadAdminVideoEditor({ data: { id } }),
   })
-  const viewerQuery = useQuery({
-    queryKey: ['viewer'],
-    queryFn: fetchViewerState,
-    staleTime: 60_000,
-  })
+  const { adminViewer } = Route.useRouteContext()
 
   if (editorQuery.isPending) {
     return <LoadingState />
   }
-  if (editorQuery.isError) {
+  // A failed refetch (e.g. an expired session) keeps the last data: the editor
+  // and its unsaved changes stay, and saving asks for a new login.
+  if (editorQuery.data === undefined) {
     return (
-      <ErrorState label="Hiba történt a videó betöltése közben. Próbáld újra később." />
+      <AdminLoadError
+        error={editorQuery.error}
+        label="Hiba történt a videó betöltése közben. Próbáld újra később."
+      />
     )
   }
   const payload = editorQuery.data
@@ -142,7 +149,7 @@ function AdminVideoEditorPage() {
       detail={payload.detail}
       options={payload.options}
       mediaHost={payload.mediaHost}
-      isLeadership={viewerQuery.data?.level === 'leadership'}
+      isLeadership={adminViewer.level === 'leadership'}
       onReload={() =>
         queryClient.invalidateQueries({ queryKey: ['admin-video-editor', id] })
       }

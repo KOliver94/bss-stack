@@ -7,7 +7,7 @@ import {
 import { resolveViewerStateFromRequest } from '#/server/pages/viewer.ts'
 import { recordInput, stringInput } from '#/server/shared/server-fn-input.ts'
 import { sanitizeReturnTo } from '#/lib/return-to.ts'
-import { adminAreaAccess, leadershipAreaAccess } from './access.ts'
+import { adminAreaAccess } from './access.ts'
 
 /**
  * Every server function is a public HTTP endpoint of its own, whichever route
@@ -50,17 +50,6 @@ export const fetchAdminAreaAccess = createServerFn({ method: 'GET' })
       ),
     )
   })
-
-/** Separate, stricter guard for leadership areas (members, audit). */
-export const fetchLeadershipAreaAccess = createServerFn({
-  method: 'GET',
-}).handler(async (): Promise<AdminAccessDto> => {
-  return toDto(
-    leadershipAreaAccess(
-      (await resolveViewerStateFromRequest(getRequest())).viewer,
-    ),
-  )
-})
 
 function toDto(access: ReturnType<typeof adminAreaAccess>): AdminAccessDto {
   if (access.kind === 'login') {

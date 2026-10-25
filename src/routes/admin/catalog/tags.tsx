@@ -4,11 +4,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { getDefaultDb } from '#/server/auth/session-store.ts'
 import { listTagsWithUsage } from '#/server/catalog/tags.ts'
-import {
-  leadershipFnMiddleware,
-  fetchLeadershipAreaAccess,
-} from '#/server/pages/admin/access-fn.ts'
-import { ErrorState, LoadingState } from '#/components/PageStates.tsx'
+import { leadershipFnMiddleware } from '#/server/pages/admin/access-fn.ts'
+import { LoadingState } from '#/components/PageStates.tsx'
 import {
   AdminSearchSelect,
   FILTER_LABEL_CLASS,
@@ -19,6 +16,7 @@ import {
   AdminTextField,
 } from '#/components/admin/form.tsx'
 import {
+  AdminLoadError,
   ConflictBanner,
   FormMessage,
   LoginRequiredBanner,
@@ -39,12 +37,9 @@ const loadTagCatalog = createServerFn({ method: 'GET' })
   })
 
 export const Route = createFileRoute('/admin/catalog/tags')({
-  beforeLoad: async () => {
-    const access = await fetchLeadershipAreaAccess()
-    if (access.kind === 'login') {
-      throw redirect({ href: access.loginUrl })
-    }
-    if (access.kind === 'forbidden') {
+  // `/admin` has already checked the session and put the viewer's level here.
+  beforeLoad: ({ context }) => {
+    if (context.adminViewer.level !== 'leadership') {
       throw redirect({ to: '/admin/videos' })
     }
   },
@@ -75,7 +70,10 @@ function TagCatalogPage() {
       <NewTagForm onCreated={refresh} />
       {catalogQuery.isPending && <LoadingState />}
       {catalogQuery.isError && (
-        <ErrorState label="Hiba történt a címkék betöltése közben. Próbáld újra később." />
+        <AdminLoadError
+          error={catalogQuery.error}
+          label="Hiba történt a címkék betöltése közben. Próbáld újra később."
+        />
       )}
       {catalogQuery.isSuccess && (
         <>

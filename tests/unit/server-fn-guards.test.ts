@@ -22,7 +22,6 @@ const EXPECTED: Record<string, Access> = {
   'src/routes/videos/index.tsx#loadFilterOptions': 'public',
   'src/routes/videos/index.tsx#loadVideoList': 'public',
   'src/server/pages/admin/access-fn.ts#fetchAdminAreaAccess': 'public',
-  'src/server/pages/admin/access-fn.ts#fetchLeadershipAreaAccess': 'public',
   'src/server/pages/live-badge-fn.ts#fetchLiveBadge': 'public',
   'src/server/pages/member-archive-fn.ts#loadArchiveMembersServer': 'public',
   'src/server/pages/viewer-fn.ts#fetchViewerState': 'public',

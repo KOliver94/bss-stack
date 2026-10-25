@@ -18,6 +18,7 @@ import {
   WebhookClientNameConflictError,
   WebhookClientNotFoundError,
 } from '#/server/webhooks/clients.ts'
+import { sanitizeReturnTo } from '#/lib/return-to.ts'
 
 export function jsonResponse(status: number, payload: unknown): Response {
   return new Response(JSON.stringify(payload), {
@@ -167,8 +168,25 @@ export async function requireAdminViewer(
     db: deps.db,
     config: deps.config,
   })
-  requireAdmin(viewer, new URL(request.url).pathname)
+  requireAdmin(viewer, callerPagePath(request))
   return viewer
+}
+
+const SERVER_FN_PATH_PREFIX = '/_serverFn/'
+
+/**
+ * The page to return to after a login. A client-side server function call
+ * reaches the function's own endpoint, so there the page is the referrer.
+ */
+function callerPagePath(request: Request): string {
+  const url = new URL(request.url)
+  if (!url.pathname.startsWith(SERVER_FN_PATH_PREFIX)) {
+    return url.pathname + url.search
+  }
+  const referrer = URL.parse(request.headers.get('referer') ?? '')
+  return referrer === null
+    ? '/admin'
+    : sanitizeReturnTo(referrer.pathname + referrer.search)
 }
 
 export async function requireLeadershipViewer(

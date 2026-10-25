@@ -11,12 +11,23 @@ import { noindexHead } from '#/lib/seo.ts'
 
 const FORBIDDEN = 'forbidden'
 
+/**
+ * Granted access is reused for a while so paging, filtering and preloading
+ * don't each wait on a fresh check; the server functions check every call
+ * anyway. A refusal is checked again, its login URL depends on the page.
+ */
+const GRANTED_ACCESS_STALE_TIME = 60_000
+
 export const Route = createFileRoute('/admin')({
   // Admin pages must not start loading data for a viewer without access:
   // child loaders wait for `beforeLoad`, while a `loader` runs alongside them.
-  beforeLoad: async ({ location }) => {
-    const access = await fetchAdminAreaAccess({
-      data: { returnTo: location.href },
+  beforeLoad: async ({ context, location }) => {
+    const access = await context.queryClient.fetchQuery({
+      queryKey: ['admin-access'],
+      queryFn: () =>
+        fetchAdminAreaAccess({ data: { returnTo: location.href } }),
+      staleTime: (query) =>
+        query.state.data?.kind === 'ok' ? GRANTED_ACCESS_STALE_TIME : 0,
     })
     if (access.kind === 'login') {
       throw redirect({ href: access.loginUrl })

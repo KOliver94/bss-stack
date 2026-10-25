@@ -14,9 +14,7 @@ import {
 import { getDefaultDb } from '#/server/auth/session-store.ts'
 
 import type { Database } from '#/server/auth/session-store.ts'
-
-const UUID_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+import { isUuid } from '#/lib/uuid.ts'
 
 export interface VideoViewDeps {
   db?: Database
@@ -41,7 +39,7 @@ export async function handleVideoView(
   ) {
     return forbiddenPage()
   }
-  if (!UUID_PATTERN.test(videoId)) {
+  if (!isUuid(videoId)) {
     return new Response(JSON.stringify({ error: 'bad_request' }), {
       status: 400,
       headers: { 'content-type': 'application/json' },

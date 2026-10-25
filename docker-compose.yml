@@ -7,9 +7,7 @@ x-authentik-environment: &authentik-environment
 
 services:
   app:
-    build:
-      context: .
-      target: runtime
+    image: ghcr.io/kir-dev/bss-stack:${BSS_TAG:-latest}
     restart: unless-stopped
     container_name: bss-app
     environment:

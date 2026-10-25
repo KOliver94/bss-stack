@@ -4,6 +4,12 @@ import { events, tags } from '#/db/schema.ts'
 import type { Executor } from '#/server/shared/db-executor.ts'
 import { searchVideosDetailed } from '#/server/search/service.ts'
 import type { VideoSort } from '#/server/search/service.ts'
+import {
+  optionalStringInput,
+  recordInput,
+  searchValueInput,
+  stringInput,
+} from '#/server/shared/server-fn-input.ts'
 
 export const VIDEO_SORTS = ['published', 'chronological', 'mostviewed'] as const
 export const VIDEO_PAGE_SIZES = [10, 25, 50, 100] as const
@@ -29,6 +35,23 @@ export interface VideoListRawSearch {
   event?: string
   from?: string
   to?: string
+}
+
+export function videoListSearchInput(input: unknown): VideoListRawSearch {
+  const raw = recordInput(input)
+  const rawTags = raw['tags']
+  return {
+    q: optionalStringInput(raw['q']),
+    sort: optionalStringInput(raw['sort']),
+    page: searchValueInput(raw['page']),
+    perPage: searchValueInput(raw['perPage']),
+    tags: Array.isArray(rawTags)
+      ? rawTags.map(stringInput)
+      : optionalStringInput(rawTags),
+    event: optionalStringInput(raw['event']),
+    from: optionalStringInput(raw['from']),
+    to: optionalStringInput(raw['to']),
+  }
 }
 
 export interface ParsedVideoListQuery {

@@ -1,7 +1,32 @@
-import { createServerFn } from '@tanstack/react-start'
+import { createMiddleware, createServerFn } from '@tanstack/react-start'
 import { getRequest } from '@tanstack/react-start/server'
+import {
+  requireAdminViewer,
+  requireLeadershipViewer,
+} from '#/server/api/admin/http.ts'
 import { resolveViewerStateFromRequest } from '#/server/pages/viewer.ts'
-import { adminAreaAccess, leadershipAreaAccess } from './access.ts'
+import { recordInput, stringInput } from '#/server/shared/server-fn-input.ts'
+import { sanitizeReturnTo } from '#/lib/return-to.ts'
+import { adminAreaAccess } from './access.ts'
+
+/**
+ * Every server function is a public HTTP endpoint of its own, whichever route
+ * calls it, so privileged ones check the caller here; route guards only steer
+ * navigation.
+ */
+export const adminFnMiddleware = createMiddleware({ type: 'function' }).server(
+  async ({ next }) => {
+    await requireAdminViewer(getRequest())
+    return next()
+  },
+)
+
+export const leadershipFnMiddleware = createMiddleware({
+  type: 'function',
+}).server(async ({ next }) => {
+  await requireLeadershipViewer(getRequest())
+  return next()
+})
 
 export interface AdminAccessDto {
   kind: 'ok' | 'login' | 'forbidden'
@@ -9,35 +34,22 @@ export interface AdminAccessDto {
   viewer?: { level: string; sub: string | null; username: string | null }
 }
 
-export const fetchAdminAreaAccess = createServerFn({ method: 'GET' }).handler(
-  async (): Promise<AdminAccessDto> => {
+/**
+ * The page passes its own path as `returnTo`: on a client-side navigation the
+ * request URL is this function's endpoint, not the page.
+ */
+export const fetchAdminAreaAccess = createServerFn({ method: 'GET' })
+  .validator((input: { returnTo: string }) => ({
+    returnTo: sanitizeReturnTo(stringInput(recordInput(input)['returnTo'])),
+  }))
+  .handler(async ({ data }): Promise<AdminAccessDto> => {
     return toDto(
       adminAreaAccess(
         (await resolveViewerStateFromRequest(getRequest())).viewer,
-        currentPath(),
+        data.returnTo,
       ),
     )
-  },
-)
-
-/** Separate, stricter guard for leadership areas (members, audit). */
-export const fetchLeadershipAreaAccess = createServerFn({
-  method: 'GET',
-}).handler(async (): Promise<AdminAccessDto> => {
-  return toDto(
-    leadershipAreaAccess(
-      (await resolveViewerStateFromRequest(getRequest())).viewer,
-    ),
-  )
-})
-
-function currentPath(): string {
-  try {
-    return new URL(getRequest().url).pathname
-  } catch {
-    return '/admin'
-  }
-}
+  })
 
 function toDto(access: ReturnType<typeof adminAreaAccess>): AdminAccessDto {
   if (access.kind === 'login') {

@@ -4,14 +4,15 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { getDefaultDb } from '#/server/auth/session-store.ts'
 import { getMemberDiagnostics } from '#/server/admin/member-diagnostics.ts'
-import { fetchLeadershipAreaAccess } from '#/server/pages/admin/access-fn.ts'
-import { ErrorState, LoadingState } from '#/components/PageStates.tsx'
+import { leadershipFnMiddleware } from '#/server/pages/admin/access-fn.ts'
+import { LoadingState } from '#/components/PageStates.tsx'
 import {
   AdminPrimaryButton,
   AdminSecondaryButton,
   AdminTextField,
 } from '#/components/admin/form.tsx'
 import {
+  AdminLoadError,
   FormMessage,
   LoginRequiredBanner,
   ValidationProblems,
@@ -30,20 +31,17 @@ import { formatAdminDateTimeHu } from '#/lib/format-date.ts'
 
 const QUERY_KEY = ['admin-member-diagnostics']
 
-const loadMemberDiagnostics = createServerFn({ method: 'GET' }).handler(
-  async () => {
+const loadMemberDiagnostics = createServerFn({ method: 'GET' })
+  .middleware([leadershipFnMiddleware])
+  .handler(async () => {
     const db = await getDefaultDb()
     return getMemberDiagnostics(db)
-  },
-)
+  })
 
 export const Route = createFileRoute('/admin/members')({
-  beforeLoad: async () => {
-    const access = await fetchLeadershipAreaAccess()
-    if (access.kind === 'login') {
-      throw redirect({ href: access.loginUrl })
-    }
-    if (access.kind === 'forbidden') {
+  // `/admin` has already checked the session and put the viewer's level here.
+  beforeLoad: ({ context }) => {
+    if (context.adminViewer.level !== 'leadership') {
       throw redirect({ to: '/admin/videos' })
     }
   },
@@ -72,7 +70,10 @@ function MemberAdminPage() {
 
       {dataQuery.isPending && <LoadingState />}
       {dataQuery.isError && (
-        <ErrorState label="Hiba történt a tagadatok betöltése közben. Próbáld újra később." />
+        <AdminLoadError
+          error={dataQuery.error}
+          label="Hiba történt a tagadatok betöltése közben. Próbáld újra később."
+        />
       )}
 
       {dataQuery.isSuccess &&

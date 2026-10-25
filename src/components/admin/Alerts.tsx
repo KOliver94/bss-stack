@@ -1,4 +1,6 @@
 import type { ReactNode } from 'react'
+import { ErrorState } from '#/components/PageStates.tsx'
+import { loginUrlFromError } from '#/lib/access-errors.ts'
 
 export function LoginRequiredBanner({ loginUrl }: { loginUrl: string }) {
   return (
@@ -18,6 +20,34 @@ export function LoginRequiredBanner({ loginUrl }: { loginUrl: string }) {
           Jelentkezz be újra
         </a>{' '}
         egy új fülön, majd próbáld meg itt újra menteni.
+      </p>
+    </div>
+  )
+}
+
+/** A failed page load; an expired session gets a login link, not a retry hint. */
+export function AdminLoadError({
+  error,
+  label,
+}: {
+  error: unknown
+  label: string
+}) {
+  const loginUrl = loginUrlFromError(error)
+  if (loginUrl === undefined) {
+    return <ErrorState label={label} />
+  }
+  return (
+    <div
+      role="alert"
+      className="mb-4 rounded border border-(--orange) bg-(--nav-search-bg) p-3 text-sm"
+    >
+      <p className="font-bold">A bejelentkezésed lejárt.</p>
+      <p className="mt-1 text-(--bss-text-secondary)">
+        <a href={loginUrl} className="font-bold text-(--orange) underline">
+          Jelentkezz be újra
+        </a>{' '}
+        az oldal betöltéséhez.
       </p>
     </div>
   )

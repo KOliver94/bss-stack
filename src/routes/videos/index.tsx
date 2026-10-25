@@ -10,6 +10,7 @@ import {
   getVideoFilterOptions,
   getVideoListPage,
   parseVideoListSearch,
+  videoListSearchInput,
   videoSortLabel,
 } from '#/server/pages/video-list.ts'
 import { resolveViewerStateFromRequest } from '#/server/pages/viewer.ts'
@@ -25,7 +26,7 @@ import type { VideoListRawSearch } from '#/server/pages/video-list.ts'
 import { pageHead, pagedPath } from '#/lib/seo.ts'
 
 const loadVideoList = createServerFn({ method: 'GET' })
-  .validator((search: VideoListRawSearch) => search)
+  .validator((search: VideoListRawSearch) => videoListSearchInput(search))
   .handler(async ({ data }) => {
     const { viewer } = await resolveViewerStateFromRequest(getRequest())
     const db = await getDefaultDb()

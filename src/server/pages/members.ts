@@ -108,6 +108,10 @@ const ARCHIVE_TITLES: Record<ArchiveKind, string> = {
   alumni: 'Öregtagok',
 }
 
+export function isArchiveKind(value: string): value is ArchiveKind {
+  return Object.hasOwn(ARCHIVE_TITLES, value)
+}
+
 const ARCHIVE_CONDITIONS: Record<ArchiveKind, SQL> = {
   archived: isNotNull(memberCache.archivedAt),
   // Active alumni also keep their block on the active members page.

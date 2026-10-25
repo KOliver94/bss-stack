@@ -2,7 +2,9 @@ import { createFileRoute, redirect } from '@tanstack/react-router'
 import { createServerFn } from '@tanstack/react-start'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { getDefaultDb } from '#/server/auth/session-store.ts'
+import { searchInput } from '#/server/shared/server-fn-input.ts'
 import {
+  ADMIN_PAGE_SIZE,
   parsePaginationNumber,
   parseSearchPage,
 } from '#/server/shared/pagination.ts'
@@ -12,8 +14,9 @@ import {
   parseAuditFilters,
 } from '#/server/admin/audit-admin.ts'
 import type { AuditListItem } from '#/server/admin/audit-admin.ts'
-import { fetchLeadershipAreaAccess } from '#/server/pages/admin/access-fn.ts'
-import { ErrorState, LoadingState } from '#/components/PageStates.tsx'
+import { leadershipFnMiddleware } from '#/server/pages/admin/access-fn.ts'
+import { LoadingState } from '#/components/PageStates.tsx'
+import { AdminLoadError } from '#/components/admin/Alerts.tsx'
 import { ResponsiveTable } from '#/components/admin/ResponsiveTable.tsx'
 import {
   AdminSearchSelect,
@@ -24,25 +27,25 @@ import type { SearchSelectOption } from '#/components/admin/SearchSelect.tsx'
 import { formatAdminDateTimeHu } from '#/lib/format-date.ts'
 
 const loadAuditPage = createServerFn({ method: 'GET' })
-  .validator(
-    (input: Record<string, string | number | undefined> | undefined) =>
-      input ?? {},
+  .middleware([leadershipFnMiddleware])
+  .validator((input: Record<string, string | number | undefined> | undefined) =>
+    searchInput(input),
   )
   .handler(async ({ data }) => {
     const db = await getDefaultDb()
     return getAuditPage(db, {
       page: parsePaginationNumber(data['page'], 1),
-      perPage: parsePaginationNumber(data['perPage'], 25),
+      perPage: ADMIN_PAGE_SIZE,
       filters: parseAuditFilters(data),
     })
   })
 
-const loadAuditFilterValues = createServerFn({ method: 'GET' }).handler(
-  async () => {
+const loadAuditFilterValues = createServerFn({ method: 'GET' })
+  .middleware([leadershipFnMiddleware])
+  .handler(async () => {
     const db = await getDefaultDb()
     return getAuditFilterValues(db)
-  },
-)
+  })
 
 interface AuditSearch extends Record<string, string | number | undefined> {
   page?: number
@@ -62,12 +65,9 @@ export const Route = createFileRoute('/admin/audit')({
     to: typeof search['to'] === 'string' ? search['to'] : undefined,
     page: parseSearchPage(search['page']),
   }),
-  beforeLoad: async () => {
-    const access = await fetchLeadershipAreaAccess()
-    if (access.kind === 'login') {
-      throw redirect({ href: access.loginUrl })
-    }
-    if (access.kind === 'forbidden') {
+  // `/admin` has already checked the session and put the viewer's level here.
+  beforeLoad: ({ context }) => {
+    if (context.adminViewer.level !== 'leadership') {
       throw redirect({ to: '/admin/videos' })
     }
   },
@@ -196,7 +196,10 @@ function AuditAdminPage() {
 
       {auditQuery.isPending && <LoadingState />}
       {auditQuery.isError && (
-        <ErrorState label="Hiba történt a napló betöltése közben. Próbáld újra később." />
+        <AdminLoadError
+          error={auditQuery.error}
+          label="Hiba történt a napló betöltése közben. Próbáld újra később."
+        />
       )}
       {auditQuery.isSuccess &&
         (auditQuery.data.items.length === 0 ? (

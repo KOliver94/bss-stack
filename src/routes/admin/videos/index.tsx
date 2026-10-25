@@ -3,18 +3,21 @@ import { createServerFn } from '@tanstack/react-start'
 import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import {
-  ADMIN_DEFAULT_PAGE_SIZE,
   getAdminVideoFilterOptions,
   getAdminVideoList,
   parseAdminVideoFilters,
 } from '#/server/admin/video-list.ts'
 import type { AdminVideoListItem } from '#/server/admin/video-list.ts'
 import { getDefaultDb } from '#/server/auth/session-store.ts'
+import { searchInput } from '#/server/shared/server-fn-input.ts'
+import { adminFnMiddleware } from '#/server/pages/admin/access-fn.ts'
 import {
+  ADMIN_PAGE_SIZE,
   parsePaginationNumber,
   parseSearchPage,
 } from '#/server/shared/pagination.ts'
-import { ErrorState, LoadingState } from '#/components/PageStates.tsx'
+import { LoadingState } from '#/components/PageStates.tsx'
+import { AdminLoadError } from '#/components/admin/Alerts.tsx'
 import { ResponsiveTable } from '#/components/admin/ResponsiveTable.tsx'
 import { VideoVisibility } from '#/components/admin/VideoVisibility.tsx'
 import {
@@ -35,25 +38,25 @@ import {
 import { THUMBNAIL_FALLBACK_SRC } from '#/components/Thumbnail.tsx'
 
 const loadAdminVideoList = createServerFn({ method: 'GET' })
-  .validator(
-    (input: Record<string, string | number | undefined> | undefined) =>
-      input ?? {},
+  .middleware([adminFnMiddleware])
+  .validator((input: Record<string, string | number | undefined> | undefined) =>
+    searchInput(input),
   )
   .handler(async ({ data }) => {
     const db = await getDefaultDb()
     return getAdminVideoList(db, {
       page: parsePaginationNumber(data['page'], 1),
-      perPage: parsePaginationNumber(data['perPage'], ADMIN_DEFAULT_PAGE_SIZE),
+      perPage: ADMIN_PAGE_SIZE,
       filters: parseAdminVideoFilters(data),
     })
   })
 
-const loadFilterOptions = createServerFn({ method: 'GET' }).handler(
-  async () => {
+const loadFilterOptions = createServerFn({ method: 'GET' })
+  .middleware([adminFnMiddleware])
+  .handler(async () => {
     const db = await getDefaultDb()
     return getAdminVideoFilterOptions(db)
-  },
-)
+  })
 
 type AdminVideoSearch = {
   q?: string
@@ -127,7 +130,10 @@ function AdminVideoListPage() {
 
       {listQuery.isPending && <LoadingState />}
       {listQuery.isError && (
-        <ErrorState label="Hiba történt a videók betöltése közben. Próbáld újra később." />
+        <AdminLoadError
+          error={listQuery.error}
+          label="Hiba történt a videók betöltése közben. Próbáld újra később."
+        />
       )}
       {listQuery.isSuccess &&
         (listQuery.data.items.length === 0 ? (

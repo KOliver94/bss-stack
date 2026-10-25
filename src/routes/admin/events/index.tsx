@@ -7,11 +7,15 @@ import {
   parseAdminEventFilters,
 } from '#/server/admin/event-list.ts'
 import { getDefaultDb } from '#/server/auth/session-store.ts'
+import { searchInput } from '#/server/shared/server-fn-input.ts'
+import { adminFnMiddleware } from '#/server/pages/admin/access-fn.ts'
 import {
+  ADMIN_PAGE_SIZE,
   parsePaginationNumber,
   parseSearchPage,
 } from '#/server/shared/pagination.ts'
-import { ErrorState, LoadingState } from '#/components/PageStates.tsx'
+import { LoadingState } from '#/components/PageStates.tsx'
+import { AdminLoadError } from '#/components/admin/Alerts.tsx'
 import { ResponsiveTable } from '#/components/admin/ResponsiveTable.tsx'
 import {
   AdminSearchSelect,
@@ -23,15 +27,15 @@ import { EVENT_STATUS_OPTIONS, eventStatusLabel } from '#/lib/admin-labels.ts'
 import { formatEventIntervalHu } from '#/lib/format-date.ts'
 
 const loadAdminEventList = createServerFn({ method: 'GET' })
-  .validator(
-    (input: Record<string, string | number | undefined> | undefined) =>
-      input ?? {},
+  .middleware([adminFnMiddleware])
+  .validator((input: Record<string, string | number | undefined> | undefined) =>
+    searchInput(input),
   )
   .handler(async ({ data }) => {
     const db = await getDefaultDb()
     return getAdminEventList(db, {
       page: parsePaginationNumber(data['page'], 1),
-      perPage: parsePaginationNumber(data['perPage'], 25),
+      perPage: ADMIN_PAGE_SIZE,
       filters: parseAdminEventFilters(data),
     })
   })
@@ -102,7 +106,10 @@ function AdminEventListPage() {
 
       {listQuery.isPending && <LoadingState />}
       {listQuery.isError && (
-        <ErrorState label="Hiba történt az események betöltése közben. Próbáld újra később." />
+        <AdminLoadError
+          error={listQuery.error}
+          label="Hiba történt az események betöltése közben. Próbáld újra később."
+        />
       )}
       {listQuery.isSuccess &&
         (listQuery.data.items.length === 0 ? (

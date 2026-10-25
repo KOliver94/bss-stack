@@ -1,3 +1,6 @@
+/** Admin lists show a fixed number of rows per page. */
+export const ADMIN_PAGE_SIZE = 25
+
 /**
  * Interpretation of pagination parameters. The value arriving from the URL may
  * be a number (`?page=2`) or a string (`?page="2"`) depending on the serializer,

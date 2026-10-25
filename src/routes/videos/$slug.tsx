@@ -10,6 +10,7 @@ import { Pencil } from 'lucide-react'
 import { getRequest } from '@tanstack/react-start/server'
 import { resolveViewerStateFromRequest } from '#/server/pages/viewer.ts'
 import { getDefaultDb } from '#/server/auth/session-store.ts'
+import { stringInput } from '#/server/shared/server-fn-input.ts'
 import { getVideoDetail } from '#/server/pages/video-detail.ts'
 import { resolvePublicSlug } from '#/server/pages/slug-route.ts'
 import VideoDetailPlayer from '#/components/VideoDetailPlayer.tsx'
@@ -28,7 +29,7 @@ const RELATED_THUMBNAIL_SIZES =
   '(min-width: 1024px) 307px, (min-width: 420px) calc((100vw - 4rem) / 2), calc(100vw - 2rem)'
 
 const loadVideoDetail = createServerFn({ method: 'GET' })
-  .validator((slug: string) => slug)
+  .validator((slug: string) => stringInput(slug))
   .handler(async ({ data: slug }) => {
     const { viewer } = await resolveViewerStateFromRequest(getRequest())
     const db = await getDefaultDb()

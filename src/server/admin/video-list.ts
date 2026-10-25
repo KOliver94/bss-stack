@@ -5,7 +5,6 @@ import type { Executor } from '#/server/shared/db-executor.ts'
 import { videoThumbnailUrl } from '#/server/media/video-media.ts'
 
 export const ADMIN_PAGE_SIZES = [10, 25, 50, 100] as const
-export const ADMIN_DEFAULT_PAGE_SIZE = 25
 
 const CONTENT_STATUSES = ['draft', 'published', 'archived', 'trash'] as const
 const VISIBILITIES = ['public', 'schonherz', 'bss'] as const

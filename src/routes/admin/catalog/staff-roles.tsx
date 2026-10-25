@@ -4,8 +4,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { getDefaultDb } from '#/server/auth/session-store.ts'
 import { listStaffRolesWithUsage } from '#/server/catalog/staff-roles.ts'
-import { fetchLeadershipAreaAccess } from '#/server/pages/admin/access-fn.ts'
-import { ErrorState, LoadingState } from '#/components/PageStates.tsx'
+import { leadershipFnMiddleware } from '#/server/pages/admin/access-fn.ts'
+import { LoadingState } from '#/components/PageStates.tsx'
 import {
   AdminSearchSelect,
   FILTER_LABEL_CLASS,
@@ -15,7 +15,11 @@ import {
   AdminSecondaryButton,
   AdminTextField,
 } from '#/components/admin/form.tsx'
-import { FormMessage, LoginRequiredBanner } from '#/components/admin/Alerts.tsx'
+import {
+  AdminLoadError,
+  FormMessage,
+  LoginRequiredBanner,
+} from '#/components/admin/Alerts.tsx'
 import { postJson } from '#/lib/admin-api.ts'
 
 interface RoleRow {
@@ -26,18 +30,17 @@ interface RoleRow {
   eventCount: number
 }
 
-const loadRoleCatalog = createServerFn({ method: 'GET' }).handler(async () => {
-  const db = await getDefaultDb()
-  return listStaffRolesWithUsage(db)
-})
+const loadRoleCatalog = createServerFn({ method: 'GET' })
+  .middleware([leadershipFnMiddleware])
+  .handler(async () => {
+    const db = await getDefaultDb()
+    return listStaffRolesWithUsage(db)
+  })
 
 export const Route = createFileRoute('/admin/catalog/staff-roles')({
-  beforeLoad: async () => {
-    const access = await fetchLeadershipAreaAccess()
-    if (access.kind === 'login') {
-      throw redirect({ href: access.loginUrl })
-    }
-    if (access.kind === 'forbidden') {
+  // `/admin` has already checked the session and put the viewer's level here.
+  beforeLoad: ({ context }) => {
+    if (context.adminViewer.level !== 'leadership') {
       throw redirect({ to: '/admin/videos' })
     }
   },
@@ -68,7 +71,10 @@ function StaffRoleCatalogPage() {
       <NewRoleForm onCreated={refresh} />
       {catalogQuery.isPending && <LoadingState />}
       {catalogQuery.isError && (
-        <ErrorState label="Hiba történt a stábszerepek betöltése közben. Próbáld újra később." />
+        <AdminLoadError
+          error={catalogQuery.error}
+          label="Hiba történt a stábszerepek betöltése közben. Próbáld újra később."
+        />
       )}
       {catalogQuery.isSuccess && (
         <RoleList roles={catalogQuery.data} onChanged={refresh} />

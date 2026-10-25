@@ -8,12 +8,22 @@ import {
 } from '#/server/pages/event-list.ts'
 import { resolveViewerStateFromRequest } from '#/server/pages/viewer.ts'
 import { getDefaultDb } from '#/server/auth/session-store.ts'
+import {
+  optionalNumberInput,
+  recordInput,
+} from '#/server/shared/server-fn-input.ts'
 import { EmptyState, ThumbnailGridSkeleton } from '#/components/PageStates.tsx'
 import Thumbnail from '#/components/Thumbnail.tsx'
 import { pageHead, pagedPath } from '#/lib/seo.ts'
 
 const loadEventList = createServerFn({ method: 'GET' })
-  .validator((input: { page?: number; perPage?: number }) => input)
+  .validator((input: { page?: number; perPage?: number }) => {
+    const raw = recordInput(input)
+    return {
+      page: optionalNumberInput(raw['page']),
+      perPage: optionalNumberInput(raw['perPage']),
+    }
+  })
   .handler(async ({ data }) => {
     const { viewer } = await resolveViewerStateFromRequest(getRequest())
     const db = await getDefaultDb()

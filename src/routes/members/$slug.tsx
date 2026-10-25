@@ -14,6 +14,11 @@ import type { ActivityRow } from '#/lib/activity.ts'
 import { resolveViewerStateFromRequest } from '#/server/pages/viewer.ts'
 import { fetchViewerState } from '#/server/pages/viewer-fn.ts'
 import { getDefaultDb } from '#/server/auth/session-store.ts'
+import {
+  integerInput,
+  recordInput,
+  stringInput,
+} from '#/server/shared/server-fn-input.ts'
 import { formatCalendarDateHu } from '#/lib/format-date.ts'
 import { formatAcademicSemesterHu } from '#/lib/academic-semester.ts'
 import { memberProfilePath, memberSlug } from '#/lib/member-slug.ts'
@@ -22,14 +27,21 @@ import { SITE_NAME, pageHead } from '#/lib/seo.ts'
 const ACTIVITY_PAGE_SIZE = 50
 
 const loadMemberProfile = createServerFn({ method: 'GET' })
-  .validator((slug: string) => slug)
+  .validator((slug: string) => stringInput(slug))
   .handler(async ({ data: slug }) => {
     const db = await getDefaultDb()
     return getMemberProfile(db, slug)
   })
 
 const loadMemberActivity = createServerFn({ method: 'GET' })
-  .validator((input: { sub: string; limit: number; offset: number }) => input)
+  .validator((input: { sub: string; limit: number; offset: number }) => {
+    const raw = recordInput(input)
+    return {
+      sub: stringInput(raw['sub']),
+      limit: integerInput(raw['limit'], 1, ACTIVITY_PAGE_SIZE),
+      offset: integerInput(raw['offset'], 0, Number.MAX_SAFE_INTEGER),
+    }
+  })
   .handler(async ({ data }) => {
     const { viewer } = await resolveViewerStateFromRequest(getRequest())
     const db = await getDefaultDb()

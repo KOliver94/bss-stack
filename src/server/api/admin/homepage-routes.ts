@@ -17,9 +17,7 @@ import { setHighlightedVideo } from '#/server/homepage/highlight.ts'
 import { videos } from '#/db/schema.ts'
 import { and, eq, inArray } from 'drizzle-orm'
 import { validateYoutubeVideo } from '#/server/media/youtube.ts'
-
-const UUID_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+import { isUuid } from '#/lib/uuid.ts'
 
 export interface AdminHomepageRouteDeps {
   db?: Database
@@ -79,10 +77,7 @@ export async function handleAdminHighlightRoute(
     const body = await readJsonBody(request)
     let videoId: string | null = null
     if (body['videoId'] !== null && body['videoId'] !== undefined) {
-      if (
-        typeof body['videoId'] !== 'string' ||
-        !UUID_PATTERN.test(body['videoId'])
-      ) {
+      if (typeof body['videoId'] !== 'string' || !isUuid(body['videoId'])) {
         throw validation(['Érvénytelen videóazonosító.'])
       }
       videoId = body['videoId']
@@ -144,7 +139,7 @@ export async function handleAdminLiveRoutes(
       return jsonResponse(200, { ok: true, id: row.id })
     }
 
-    if (id === undefined || !UUID_PATTERN.test(id)) {
+    if (id === undefined || !isUuid(id)) {
       throw validation(['Érvénytelen live azonosító.'])
     }
     if (!LIVE_ACTION_PATTERN.test(action)) {
@@ -190,7 +185,7 @@ export async function handleAdminAboutRoute(
       ])
     }
     for (const id of orderedVideoIds) {
-      if (!UUID_PATTERN.test(id)) {
+      if (!isUuid(id)) {
         throw validation(['Érvénytelen videóazonosító a listában.'])
       }
     }

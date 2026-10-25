@@ -12,9 +12,11 @@ import {
   getAdminEventEditorOptions,
 } from '#/server/admin/event-list.ts'
 import { getDefaultDb } from '#/server/auth/session-store.ts'
+import { idInput } from '#/server/shared/server-fn-input.ts'
+import { isUuid } from '#/lib/uuid.ts'
+import { adminFnMiddleware } from '#/server/pages/admin/access-fn.ts'
 import { allowedMediaHosts } from '#/server/media/allowed-hosts.ts'
-import { fetchViewerState } from '#/server/pages/viewer-fn.ts'
-import { ErrorState, LoadingState } from '#/components/PageStates.tsx'
+import { LoadingState } from '#/components/PageStates.tsx'
 import {
   AdminPrimaryButton,
   AdminSecondaryButton,
@@ -22,6 +24,7 @@ import {
   AdminTextField,
 } from '#/components/admin/form.tsx'
 import {
+  AdminLoadError,
   ConflictBanner,
   FormMessage,
   LoginRequiredBanner,
@@ -41,7 +44,8 @@ import type {
 const EVENT_CREW_ROLE_NAME = 'Esemény stábtag'
 
 const loadAdminEventEditor = createServerFn({ method: 'GET' })
-  .validator((input: unknown) => input as { id: string })
+  .middleware([adminFnMiddleware])
+  .validator((input: { id: string }) => idInput(input))
   .handler(async ({ data }) => {
     const db = await getDefaultDb()
     const detail = await getAdminEventDetail(db, data.id)
@@ -51,11 +55,16 @@ const loadAdminEventEditor = createServerFn({ method: 'GET' })
   })
 
 export const Route = createFileRoute('/admin/events/$id')({
-  loader: ({ params, context }) =>
-    context.queryClient.ensureQueryData({
+  loader: ({ params, context }) => {
+    // A malformed id can't match any row; the server function would reject it.
+    if (!isUuid(params.id)) {
+      throw notFound()
+    }
+    return context.queryClient.ensureQueryData({
       queryKey: ['admin-event-editor', params.id],
       queryFn: () => loadAdminEventEditor({ data: { id: params.id } }),
-    }),
+    })
+  },
   component: AdminEventEditorPage,
 })
 
@@ -66,18 +75,19 @@ function AdminEventEditorPage() {
     queryKey: ['admin-event-editor', id],
     queryFn: () => loadAdminEventEditor({ data: { id } }),
   })
-  const viewerQuery = useQuery({
-    queryKey: ['viewer'],
-    queryFn: fetchViewerState,
-    staleTime: 60_000,
-  })
+  const { adminViewer } = Route.useRouteContext()
 
   if (editorQuery.isPending) {
     return <LoadingState />
   }
-  if (editorQuery.isError) {
+  // A failed refetch (e.g. an expired session) keeps the last data: the editor
+  // and its unsaved changes stay, and saving asks for a new login.
+  if (editorQuery.data === undefined) {
     return (
-      <ErrorState label="Hiba történt az esemény betöltése közben. Próbáld újra később." />
+      <AdminLoadError
+        error={editorQuery.error}
+        label="Hiba történt az esemény betöltése közben. Próbáld újra később."
+      />
     )
   }
   const { detail, options } = editorQuery.data
@@ -91,7 +101,7 @@ function AdminEventEditorPage() {
       detail={detail}
       options={options}
       mediaAllowedHosts={editorQuery.data.mediaAllowedHosts}
-      isLeadership={viewerQuery.data?.level === 'leadership'}
+      isLeadership={adminViewer.level === 'leadership'}
       onReload={() =>
         queryClient.invalidateQueries({ queryKey: ['admin-event-editor', id] })
       }

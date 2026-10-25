@@ -19,6 +19,7 @@ import {
   handleMemberWebhook,
   MEMBER_WEBHOOK_PATH,
 } from '#/server/api/webhook-routes.ts'
+import { trimTrailingSlashes } from '#/server/shared/trailing-slashes.ts'
 
 export const API_PATH_PREFIXES = ['/api/', '/health/']
 
@@ -38,18 +39,8 @@ const WEBHOOK_CLIENT_ACTION_PATTERN =
 const LIVE_ACTION_PATTERN =
   /^\/api\/admin\/live\/([0-9a-f-]+)\/(update|start_now|end_now|delete)$/
 
-// Linear in the path length; a regex like /\/+$/ backtracks quadratically on a
-// long run of slashes that does not end the path.
-function trimTrailingSlashes(pathname: string): string {
-  let end = pathname.length
-  while (end > 0 && pathname[end - 1] === '/') {
-    end--
-  }
-  return pathname.slice(0, end) || '/'
-}
-
 export async function handleApiRequest(request: Request): Promise<Response> {
-  const pathname = trimTrailingSlashes(new URL(request.url).pathname)
+  const pathname = trimTrailingSlashes(new URL(request.url).pathname) || '/'
 
   const viewMatch = VIDEO_VIEW_PATTERN.exec(pathname)
   if (viewMatch !== null) {

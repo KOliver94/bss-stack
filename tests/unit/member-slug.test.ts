@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { memberProfilePath } from '#/lib/member-slug.ts'
+import { isDotSegment, memberProfilePath } from '#/lib/member-slug.ts'
 
 describe('tagprofil útvonala', () => {
   it('a felhasználónevet használja, ha ismert', () => {
@@ -19,5 +19,12 @@ describe('tagprofil útvonala', () => {
     expect(memberProfilePath({ sub: '42', username: 'kovacs@sch' })).toBe(
       '/members/kovacs%40sch',
     )
+  })
+
+  it('a . és .. nevet útvonalszakasznak ismeri fel', () => {
+    expect(isDotSegment('.')).toBe(true)
+    expect(isDotSegment('..')).toBe(true)
+    expect(isDotSegment('...')).toBe(false)
+    expect(isDotSegment('kovacs.janos')).toBe(false)
   })
 })

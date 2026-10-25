@@ -8,6 +8,12 @@ import {
 } from '#/server/http/security-headers.ts'
 import { TEST_MEDIA_HOST } from '../helpers/oob-config.ts'
 
+// A fresh module per test: it remembers a failed config load for the process.
+async function freshWithSecurityHeaders(): Promise<typeof withSecurityHeaders> {
+  vi.resetModules()
+  return (await import('#/server/http/security-headers.ts')).withSecurityHeaders
+}
+
 describe('BSS-035: biztonsági fejlécek és CSP', () => {
   it('a CSP engedi a média hostot és a YouTube nocookie framet', () => {
     const csp = contentSecurityPolicy(TEST_MEDIA_HOST)
@@ -50,16 +56,44 @@ describe('BSS-035: biztonsági fejlécek és CSP', () => {
     )
   })
 
-  it('OOB config nélkül is hozzáadja a fejléceket, médiahost nélküli CSP-vel', () => {
+  it('OOB config nélkül is hozzáadja a fejléceket, médiahost nélküli CSP-vel, és egyszer naplóz', async () => {
     vi.stubEnv('BSS_OOB_CONFIG', 'nem-letezik/config.json')
     resetCachedOobConfig()
+    const withHeaders = await freshWithSecurityHeaders()
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {})
     try {
-      const response = withSecurityHeaders(new Response('User-agent: *'))
+      const response = withHeaders(new Response('User-agent: *'))
       expect(response.headers.get('x-content-type-options')).toBe('nosniff')
       expect(response.headers.get('content-security-policy')).toContain(
         "media-src 'self'",
       )
+      withHeaders(new Response('User-agent: *'))
+      expect(error).toHaveBeenCalledTimes(1)
     } finally {
+      error.mockRestore()
+      vi.unstubAllEnvs()
+      resetCachedOobConfig()
+    }
+  })
+
+  it('a válasz saját CSP-jét megtartja, és ehhez nem tölti be az OOB configot', async () => {
+    vi.stubEnv('BSS_OOB_CONFIG', 'nem-letezik/config.json')
+    resetCachedOobConfig()
+    const withHeaders = await freshWithSecurityHeaders()
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      const response = withHeaders(
+        new Response('<urlset/>', {
+          headers: { 'content-security-policy': "default-src 'none'" },
+        }),
+      )
+      expect(response.headers.get('content-security-policy')).toBe(
+        "default-src 'none'",
+      )
+      expect(response.headers.get('x-content-type-options')).toBe('nosniff')
+      expect(error).not.toHaveBeenCalled()
+    } finally {
+      error.mockRestore()
       vi.unstubAllEnvs()
       resetCachedOobConfig()
     }

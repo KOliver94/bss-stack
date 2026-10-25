@@ -21,6 +21,10 @@ import { fetchViewerState } from '#/server/pages/viewer-fn.ts'
 import { pageHead } from '#/lib/seo.ts'
 import type { VideoDetail } from '#/server/pages/video-detail.ts'
 
+// Matches the "További videók" grid inside the max-w-5xl content column.
+const RELATED_THUMBNAIL_SIZES =
+  '(min-width: 1024px) 307px, (min-width: 420px) calc((100vw - 4rem) / 2), calc(100vw - 2rem)'
+
 const loadVideoDetail = createServerFn({ method: 'GET' })
   .validator((slug: string) => slug)
   .handler(async ({ data: slug }) => {
@@ -258,7 +262,12 @@ function VideoDetailPage() {
                   params={{ slug: related.slug }}
                   className="group card-surface hover-lift block shadow-[0px_2px_6px_0_rgba(0,0,0,0.25)]"
                 >
-                  <Thumbnail src={related.thumbnailUrl} alt={related.title} />
+                  <Thumbnail
+                    src={related.thumbnailUrl}
+                    largeSrc={related.keyframeUrl}
+                    sizes={RELATED_THUMBNAIL_SIZES}
+                    alt={related.title}
+                  />
                   <span className="block truncate px-2 py-1 text-(--bss-text-secondary) group-hover:text-(--orange)">
                     {related.title}
                   </span>

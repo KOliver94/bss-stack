@@ -26,6 +26,7 @@ export interface RelatedVideoItem {
   slug: string
   title: string
   thumbnailUrl: string | null
+  keyframeUrl: string | null
 }
 
 export interface VideoDetail {
@@ -148,12 +149,15 @@ export async function getVideoDetail(
     event: eventRow?.at(0) ?? null,
     tags: tagRows,
     staff: [...staffByRole.values()],
-    relatedVideos: related.map((item) => ({
-      id: item.id,
-      slug: item.slug,
-      title: item.title,
-      thumbnailUrl: videoAssetUrls(item).thumbnailUrl,
-      keyframeUrl: videoAssetUrls(item).keyframeUrl,
-    })),
+    relatedVideos: related.map((item) => {
+      const { thumbnailUrl, keyframeUrl } = videoAssetUrls(item)
+      return {
+        id: item.id,
+        slug: item.slug,
+        title: item.title,
+        thumbnailUrl,
+        keyframeUrl,
+      }
+    }),
   }
 }

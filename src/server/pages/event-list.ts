@@ -1,6 +1,12 @@
 import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm'
 import type { Viewer } from '#/server/auth/viewer.ts'
-import { events, memberCache, videoStaff, videos } from '#/db/schema.ts'
+import {
+  eventStaff,
+  events,
+  memberCache,
+  videoStaff,
+  videos,
+} from '#/db/schema.ts'
 import type { Executor } from '#/server/shared/db-executor.ts'
 import { visibleVideoCondition } from '#/server/videos/visibility.ts'
 import {
@@ -196,8 +202,8 @@ export interface EventDetailData {
 
 /**
  * Public event detail: videos in descending `recordedAt` order (missing
- * values at the end), paginated by 50; the derived staff list is built only
- * from visible videos.
+ * values at the end), paginated by 50; the staff list joins the event crew
+ * with the members credited on visible videos.
  */
 export async function getEventDetail(
   executor: Executor,
@@ -229,7 +235,7 @@ export async function getEventDetail(
     visibleVideoCondition(viewer),
   )
 
-  const [videoRows, countRows, staffRows] = await Promise.all([
+  const [videoRows, countRows, videoStaffRows, crewRows] = await Promise.all([
     executor
       .select({
         id: videos.id,
@@ -264,7 +270,23 @@ export async function getEventDetail(
       .where(videoCondition)
       .orderBy(asc(memberCache.fullName))
       .limit(1000),
+    executor
+      .selectDistinct({
+        sub: memberCache.sub,
+        username: memberCache.username,
+        fullName: memberCache.fullName,
+      })
+      .from(eventStaff)
+      .innerJoin(memberCache, eq(memberCache.sub, eventStaff.memberSub))
+      .where(eq(eventStaff.eventId, event.id)),
   ])
+  const staffBySub = new Map(
+    [...crewRows, ...videoStaffRows].map((row) => [row.sub, row]),
+  )
+  const staffRows = [...staffBySub.values()].sort(
+    (a, b) =>
+      a.fullName.localeCompare(b.fullName, 'hu') || a.sub.localeCompare(b.sub),
+  )
 
   return {
     id: event.id,

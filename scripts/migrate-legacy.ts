@@ -6,7 +6,7 @@
  *   pnpm exec tsx scripts/migrate-legacy.ts --execute   # actually write to Postgres DATABASE_URL
  *
  * The script is idempotent: members are upserted by sub, events/videos by slug,
- * tags/roles by normalizedName.
+ * tags/roles by normalizedName; video and event staff lists are replaced.
  */
 import 'dotenv/config'
 import { execFileSync } from 'node:child_process'
@@ -17,6 +17,7 @@ import { drizzle } from 'drizzle-orm/node-postgres'
 import { Pool } from 'pg'
 import { eq, inArray } from 'drizzle-orm'
 import {
+  eventStaff,
   events,
   memberCache,
   membershipStatusEnum,
@@ -654,6 +655,7 @@ async function migrateEventsAndVideos(
     status: 'draft' | 'published' | 'archived'
     createdAt: Date
     updatedAt: Date
+    staff: Array<{ uid: number; username: string; role: string }>
   }> = []
   const usedEventSlugs = new Set<string>()
 
@@ -744,7 +746,41 @@ async function migrateEventsAndVideos(
       status: status,
       createdAt: new Date(created * 1000),
       updatedAt: new Date(Number(r['changed'] ?? created) * 1000),
+      staff: [],
     })
+  }
+
+  // Event nodes carry their own cast list: mostly "Esemény stábtag", members
+  // who helped at the event without a credit on any of its videos. Crews of
+  // duplicate nodes fold into the canonical event.
+  const eventStaffRows = mysqlJson(`
+    SELECT JSON_OBJECT(
+      'nid', n.nid,
+      'uid', u.uid,
+      'username', u.name,
+      'role', rn.title
+    )
+    FROM content_field_cast_list cfcl
+    JOIN node n ON n.vid = cfcl.vid AND n.type = 'event'
+    JOIN content_type_cast_element cce ON cce.vid = cfcl.field_cast_list_item_id
+    JOIN users u ON u.uid = cce.field_cast_person_uid
+    JOIN node rn ON rn.nid = cce.field_cast_cue_nid
+    WHERE cfcl.field_cast_list_item_id IS NOT NULL
+    ORDER BY n.nid, cfcl.delta
+  `)
+  const eventPayloadByKey = new Map(eventPayloads.map((ev) => [ev.key, ev]))
+  for (const row of eventStaffRows) {
+    const nid = Number(row['nid'])
+    const username = String(row['username'] ?? '')
+    const role = String(row['role'] ?? '')
+    if (!username || !role) continue
+    const ev = eventPayloadByKey.get(
+      `event-${DUPLICATE_EVENT_NIDS.get(nid) ?? nid}`,
+    )
+    if (!ev) continue
+    if (!ev.staff.some((e) => e.username === username && e.role === role)) {
+      ev.staff.push({ uid: Number(row['uid']), username, role })
+    }
   }
 
   console.log('\n=== Videos (fetching ...) ===')
@@ -998,6 +1034,7 @@ async function migrateEventsAndVideos(
     })
   }
 
+  for (const ev of eventPayloads) for (const s of ev.staff) roleSet.add(s.role)
   // Union all historical tags/roles so empty ones are also created
   for (const t of allHistoricalTags) tagSet.add(t)
   for (const r of allHistoricalRoles) roleSet.add(r)
@@ -1059,6 +1096,10 @@ async function migrateEventsAndVideos(
     `  -> wrote oob/migrate-videos.json (${videoPayloads.length} videos)`,
   )
   console.log(`  -> distinct tags ${tagSet.size}, roles ${roleSet.size}`)
+  console.log(
+    `  -> event staff: ${eventPayloads.reduce((n, ev) => n + ev.staff.length, 0)} entries on ${eventPayloads.filter((ev) => ev.staff.length > 0).length} events`,
+  )
+  writeEventStaffSql(join(oobDir, 'import-event-staff.sql'), eventPayloads)
 
   if (opts.dryRun) {
     console.log('\nDry run: skipping DB writes.')
@@ -1128,11 +1169,12 @@ async function migrateEventsAndVideos(
 
   // Resolve member subs for staff (need username -> sub) – case-insensitive
   const allStaffUsernames = [
-    ...new Set(
-      videoPayloads.flatMap((v) =>
+    ...new Set([
+      ...videoPayloads.flatMap((v) =>
         (v['staff'] as Array<{ username: string }>).map((s) => s.username),
       ),
-    ),
+      ...eventPayloads.flatMap((ev) => ev.staff.map((s) => s.username)),
+    ]),
   ]
   const allStaffLower = [
     ...new Set(allStaffUsernames.map((u) => u.toLowerCase())),
@@ -1220,6 +1262,53 @@ async function migrateEventsAndVideos(
     }
   }
   console.log(`Events: ${createdEvents} created, ${updatedEvents} updated`)
+
+  // Event crews: replaced wholesale when they differ, like video staff.
+  let eventStaffLinks = 0
+  let eventStaffReplaced = 0
+  for (const ev of eventPayloads) {
+    const eventId = eventIdByKey.get(ev.key)
+    if (!eventId) continue
+    const desired = ev.staff
+      .map((entry) => {
+        const sub = subByUsername.get(entry.username.toLowerCase())
+        const roleId = roleIdByNorm.get(normalizeCatalogName(entry.role))
+        if (!sub || !roleId) return null
+        return { roleId, memberSub: sub }
+      })
+      .filter((e): e is { roleId: string; memberSub: string } => e !== null)
+      .filter(
+        (e, i, all) =>
+          all.findIndex(
+            (o) => o.roleId === e.roleId && o.memberSub === e.memberSub,
+          ) === i,
+      )
+    const current = await db
+      .select({ roleId: eventStaff.roleId, memberSub: eventStaff.memberSub })
+      .from(eventStaff)
+      .where(eq(eventStaff.eventId, eventId))
+    const differs =
+      current.length !== desired.length ||
+      desired.some(
+        (d) =>
+          !current.some(
+            (c) => c.roleId === d.roleId && c.memberSub === d.memberSub,
+          ),
+      )
+    if (differs) {
+      await db.delete(eventStaff).where(eq(eventStaff.eventId, eventId))
+      if (desired.length > 0) {
+        await db
+          .insert(eventStaff)
+          .values(desired.map((e) => ({ eventId, ...e })))
+      }
+      eventStaffReplaced++
+    }
+    eventStaffLinks += desired.length
+  }
+  console.log(
+    `Event staff: ${eventStaffLinks} links, ${eventStaffReplaced} events replaced`,
+  )
 
   // Videos
   let createdVideos = 0
@@ -1403,6 +1492,166 @@ async function migrateEventsAndVideos(
     events: { created: createdEvents, updated: updatedEvents },
     videos: { created: createdVideos, updated: updatedVideos },
   }
+}
+
+// ---------------------------------------------------------------------------
+// Event staff SQL for an already migrated database (prod)
+// ---------------------------------------------------------------------------
+
+function sqlLiteral(value: string): string {
+  return `'${value.replace(/'/g, "''")}'`
+}
+
+/**
+ * The event crews as a standalone SQL script, for databases migrated before
+ * event_staff existed. Members resolve by sub (Backstage id linked through
+ * websiteUserId, or legacy-drupal-<uid> as migrateMembers creates them), then
+ * by username; Authentik logins may have changed the username since.
+ */
+function writeEventStaffSql(
+  outPath: string,
+  eventPayloads: Array<{
+    slug: string
+    title: string
+    staff: Array<{ uid: number; username: string; role: string }>
+  }>,
+): void {
+  const subByUid = new Map<number, string>()
+  for (const cols of parseBackstageCopy('Member')) {
+    const websiteUserId = cols[13]
+    if (!websiteUserId || websiteUserId === '\\N') continue
+    const uid = Number(websiteUserId)
+    if (!subByUid.has(uid)) subByUid.set(uid, cols[0])
+  }
+
+  const values: string[] = []
+  for (const ev of eventPayloads) {
+    for (const entry of ev.staff) {
+      const sub = subByUid.get(entry.uid) ?? `legacy-drupal-${entry.uid}`
+      values.push(
+        `  (${[ev.slug, normalizeCatalogName(entry.role), entry.role, sub, entry.username.toLowerCase()].map(sqlLiteral).join(', ')})`,
+      )
+    }
+  }
+  const eventCount = eventPayloads.filter((ev) => ev.staff.length > 0).length
+
+  const script = `-- Event crews ("Esemény stábtag" and the other cast entries of Drupal event
+-- nodes) for a database migrated before the event_staff table existed.
+-- Generated by scripts/migrate-legacy.ts on ${new Date().toISOString().slice(0, 10)}: ${values.length} entries on ${eventCount} events.
+--
+-- Run the drizzle migrations first (event_staff), then inside the db container:
+--   docker exec -i bss-db psql -U bss -d bss -v ON_ERROR_STOP=1 < oob/import-event-staff.sql
+--
+-- Events resolve by slug (or a renamed event's old slug), roles by normalized
+-- name, members by sub, then by username. Unresolved events and members are
+-- skipped and listed as NOTICEs; a missing role aborts. Existing crew entries
+-- are kept, so a rerun only adds what is missing. Single transaction.
+
+BEGIN;
+
+DO $$
+BEGIN
+  IF to_regclass('public.event_staff') IS NULL THEN
+    RAISE EXCEPTION 'event_staff does not exist: run the drizzle migrations first';
+  END IF;
+END $$;
+
+CREATE TEMP TABLE legacy_event_staff (
+  event_slug text NOT NULL,
+  role_normalized text NOT NULL,
+  role_name text NOT NULL,
+  member_sub text NOT NULL,
+  username text NOT NULL
+) ON COMMIT DROP;
+
+INSERT INTO legacy_event_staff (event_slug, role_normalized, role_name, member_sub, username) VALUES
+${values.join(',\n')};
+
+CREATE TEMP TABLE resolved_event_staff ON COMMIT DROP AS
+SELECT l.*,
+       COALESCE(
+         (SELECT e.id FROM events e WHERE e.slug = l.event_slug),
+         (SELECT h.entity_id FROM slug_history h
+           JOIN events e ON e.id = h.entity_id
+          WHERE h.entity_type = 'event' AND h.slug = l.event_slug)
+       ) AS event_id,
+       (SELECT r.id FROM staff_roles r WHERE r.normalized_name = l.role_normalized) AS role_id,
+       COALESCE(
+         (SELECT m.sub FROM member_cache m WHERE m.sub = l.member_sub),
+         (SELECT m.sub FROM member_cache m WHERE lower(m.username) = l.username LIMIT 1)
+       ) AS resolved_sub
+  FROM legacy_event_staff l;
+
+DO $$
+DECLARE r record;
+BEGIN
+  FOR r IN SELECT DISTINCT role_name FROM resolved_event_staff WHERE role_id IS NULL LOOP
+    RAISE EXCEPTION 'Staff role not found: %', r.role_name;
+  END LOOP;
+  FOR r IN SELECT event_slug, count(*) AS n FROM resolved_event_staff
+            WHERE event_id IS NULL GROUP BY event_slug ORDER BY event_slug LOOP
+    RAISE NOTICE 'Event not found, % entries skipped: %', r.n, r.event_slug;
+  END LOOP;
+  FOR r IN SELECT DISTINCT member_sub, username FROM resolved_event_staff
+            WHERE event_id IS NOT NULL AND resolved_sub IS NULL ORDER BY username LOOP
+    RAISE NOTICE 'Member not found, skipped: % (%)', r.username, r.member_sub;
+  END LOOP;
+END $$;
+
+CREATE TEMP TABLE inserted_event_staff ON COMMIT DROP AS
+WITH ins AS (
+  INSERT INTO event_staff (event_id, role_id, member_sub)
+  SELECT DISTINCT event_id, role_id, resolved_sub
+    FROM resolved_event_staff
+   WHERE event_id IS NOT NULL AND resolved_sub IS NOT NULL
+  ON CONFLICT DO NOTHING
+  RETURNING event_id, role_id, member_sub
+)
+SELECT * FROM ins;
+
+-- Same bookkeeping as the admin crew editor: version bump and an audit entry.
+WITH changed AS (
+  SELECT event_id,
+         jsonb_agg(jsonb_build_object('roleId', role_id, 'memberSub', member_sub)) AS added
+    FROM inserted_event_staff
+   GROUP BY event_id
+), before AS (
+  SELECT c.event_id,
+         COALESCE(
+           (SELECT jsonb_agg(jsonb_build_object('roleId', s.role_id, 'memberSub', s.member_sub))
+              FROM event_staff s
+             WHERE s.event_id = c.event_id
+               AND NOT EXISTS (SELECT 1 FROM inserted_event_staff i
+                                WHERE i.event_id = s.event_id AND i.role_id = s.role_id
+                                  AND i.member_sub = s.member_sub)),
+           '[]'::jsonb) AS staff
+    FROM changed c
+), bumped AS (
+  UPDATE events e
+     SET version = e.version + 1, updated_at = now()
+    FROM changed c
+   WHERE e.id = c.event_id
+  RETURNING e.id
+)
+INSERT INTO audit_log (actor, entity_type, entity_id, action, before_value, after_value, occurred_at)
+SELECT 'system', 'event', b.event_id, 'assign_staff',
+       jsonb_build_object('staff', b.staff),
+       jsonb_build_object('staff', b.staff || c.added), now()
+  FROM before b
+  JOIN changed c ON c.event_id = b.event_id
+  JOIN bumped u ON u.id = b.event_id;
+
+DO $$
+DECLARE n int; e int;
+BEGIN
+  SELECT count(*), count(DISTINCT event_id) INTO n, e FROM inserted_event_staff;
+  RAISE NOTICE 'Inserted % event staff entries on % events', n, e;
+END $$;
+
+COMMIT;
+`
+  writeFileSync(outPath, script)
+  console.log(`  -> wrote ${outPath} (${values.length} entries)`)
 }
 
 // ---------------------------------------------------------------------------

@@ -10,10 +10,13 @@ import {
 import { handleAdminEventRoutes } from '#/server/api/admin/event-routes.ts'
 import {
   getAdminEventDetail,
+  getAdminEventEditorOptions,
   getAdminEventList,
   parseAdminEventFilters,
 } from '#/server/admin/event-list.ts'
-import { events, videos } from '#/db/schema.ts'
+import { getEventDetail } from '#/server/pages/event-list.ts'
+import { anonymousViewer } from '#/server/auth/viewer.ts'
+import { auditLog, events, staffRoles, videos } from '#/db/schema.ts'
 
 const hasTestDatabase = Boolean(process.env.TEST_DATABASE_URL)
 
@@ -305,3 +308,101 @@ describe.skipIf(!hasTestDatabase)(
     })
   },
 )
+
+describe.skipIf(!hasTestDatabase)('esemény közreműködők (stáblista)', () => {
+  it('tag cserélheti a közreműködőket; a nyilvános oldalon is megjelennek', async () => {
+    const ctx = await setupAdminApiTest('bss evstaff')
+    const event = await ctx.db
+      .insert(events)
+      .values({
+        slug: 'ev-stab',
+        title: 'Stábos esemény',
+        startDate: '2026-04-01',
+        status: 'published',
+      })
+      .returning()
+      .then((rows) => rows[0])
+    const role = await ctx.db
+      .insert(staffRoles)
+      .values({ name: 'Esemény stábtag', normalizedName: 'esemeny stabtag' })
+      .returning()
+      .then((rows) => rows[0])
+    const assignments = [
+      { roleId: role.id, memberSub: 'sub-admin-member' },
+      { roleId: role.id, memberSub: 'sub-admin-member' },
+      { roleId: role.id, memberSub: 'sub-admin-leader' },
+    ]
+
+    const schonherz = await handleAdminEventRoutes(
+      jsonRequest(ctx.schonherzToken, `/api/admin/events/${event.id}/staff`, {
+        version: 1,
+        assignments,
+      }),
+      'staff',
+      event.id,
+      deps(ctx),
+    )
+    expect(schonherz.status).toBe(403)
+
+    const saved = await handleAdminEventRoutes(
+      jsonRequest(ctx.memberToken, `/api/admin/events/${event.id}/staff`, {
+        version: 1,
+        assignments,
+      }),
+      'staff',
+      event.id,
+      deps(ctx),
+    )
+    expect(saved.status).toBe(200)
+    expect((await responseBody(saved)).payload['version']).toBe(2)
+
+    const detail = await getAdminEventDetail(ctx.db, event.id)
+    expect(detail?.staffAssignments).toHaveLength(2)
+    const options = await getAdminEventEditorOptions(ctx.db, event.id)
+    expect(options.staffRoles.map((item) => item.name)).toEqual([
+      'Esemény stábtag',
+    ])
+
+    const publicDetail = await getEventDetail(
+      ctx.db,
+      anonymousViewer(),
+      'ev-stab',
+    )
+    expect(
+      publicDetail?.staffMembers.map((member) => member.sub).sort(),
+    ).toEqual(['sub-admin-leader', 'sub-admin-member'])
+
+    const audit = await ctx.db
+      .select()
+      .from(auditLog)
+      .where(eq(auditLog.action, 'assign_staff'))
+    expect(audit.map((row) => row.entityId)).toEqual([event.id])
+
+    const stale = await handleAdminEventRoutes(
+      jsonRequest(ctx.memberToken, `/api/admin/events/${event.id}/staff`, {
+        version: 1,
+        assignments: [],
+      }),
+      'staff',
+      event.id,
+      deps(ctx),
+    )
+    expect(stale.status).toBe(409)
+
+    const unknownRole = await handleAdminEventRoutes(
+      jsonRequest(ctx.memberToken, `/api/admin/events/${event.id}/staff`, {
+        version: 2,
+        assignments: [
+          {
+            roleId: '00000000-0000-4000-8000-000000000000',
+            memberSub: 'sub-admin-member',
+          },
+        ],
+      }),
+      'staff',
+      event.id,
+      deps(ctx),
+    )
+    expect(unknownRole.status).toBe(400)
+  })
+})

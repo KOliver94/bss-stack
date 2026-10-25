@@ -4,7 +4,7 @@ import { systemClock } from '#/lib/clock.ts'
 import { ForbiddenError } from '#/server/auth/guards.ts'
 import { can } from '#/server/auth/policy.ts'
 import type { Viewer } from '#/server/auth/viewer.ts'
-import { staffRoles, videoStaff } from '#/db/schema.ts'
+import { eventStaff, staffRoles, videoStaff } from '#/db/schema.ts'
 import type { Executor } from '#/server/shared/db-executor.ts'
 import {
   TEXT_LIMITS,
@@ -25,7 +25,7 @@ export class StaffRoleNotFoundError extends Error {
 export class StaffRoleInUseError extends Error {
   constructor(name: string, usageCount: number) {
     super(
-      `A „${name}" stábszerep ${usageCount} videón használatban van, ezért nem törölhető. Előbb vond össze egy másik szereppel.`,
+      `A „${name}" stábszerep ${usageCount} videón vagy eseményen használatban van, ezért nem törölhető. Előbb vond össze egy másik szereppel.`,
     )
     this.name = 'StaffRoleInUseError'
   }
@@ -176,6 +176,14 @@ export async function mergeStaffRole(
       on conflict do nothing
     `)
     await tx.delete(videoStaff).where(eq(videoStaff.roleId, source.id))
+    await tx.execute(sql`
+      insert into event_staff (event_id, role_id, member_sub)
+      select es.event_id, ${target.id}::uuid, es.member_sub
+      from event_staff es
+      where es.role_id = ${source.id}::uuid
+      on conflict do nothing
+    `)
+    await tx.delete(eventStaff).where(eq(eventStaff.roleId, source.id))
     await tx.delete(staffRoles).where(eq(staffRoles.id, source.id))
 
     const now = (deps.clock ?? systemClock).now()
@@ -201,9 +209,14 @@ export async function deleteStaffRole(
   await executor.transaction(async (tx) => {
     const role = await loadRole(tx, roleId)
     const usageRows = await tx
-      .select({ count: sql<number>`count(*)::int` })
-      .from(videoStaff)
-      .where(eq(videoStaff.roleId, roleId))
+      .select({
+        count: sql<number>`(
+          (select count(*) from ${videoStaff} where ${videoStaff.roleId} = ${roleId})
+          + (select count(*) from ${eventStaff} where ${eventStaff.roleId} = ${roleId})
+        )::int`,
+      })
+      .from(staffRoles)
+      .where(eq(staffRoles.id, roleId))
     const usageCount = usageRows.at(0)?.count ?? 0
     if (usageCount > 0) {
       throw new StaffRoleInUseError(role.name, usageCount)
@@ -261,6 +274,7 @@ export interface StaffRoleWithUsage {
   name: string
   displayOrder: number
   videoCount: number
+  eventCount: number
 }
 
 export async function listStaffRolesWithUsage(
@@ -271,11 +285,14 @@ export async function listStaffRolesWithUsage(
       id: staffRoles.id,
       name: staffRoles.name,
       displayOrder: staffRoles.displayOrder,
-      videoCount: sql<number>`count(${videoStaff.videoId})::int`,
+      videoCount: sql<number>`(select count(*) from ${videoStaff} where ${videoStaff.roleId} = ${staffRoles.id})::int`,
+      eventCount: sql<number>`(select count(*) from ${eventStaff} where ${eventStaff.roleId} = ${staffRoles.id})::int`,
     })
     .from(staffRoles)
-    .leftJoin(videoStaff, eq(videoStaff.roleId, staffRoles.id))
-    .groupBy(staffRoles.id, staffRoles.name, staffRoles.displayOrder)
     .orderBy(staffRoles.displayOrder, staffRoles.name)
-  return rows.map((row) => ({ ...row, videoCount: Number(row.videoCount) }))
+  return rows.map((row) => ({
+    ...row,
+    videoCount: Number(row.videoCount),
+    eventCount: Number(row.eventCount),
+  }))
 }
